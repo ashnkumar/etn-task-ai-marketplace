@@ -1,16 +1,44 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Zap } from "lucide-react"
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Zap } from "lucide-react";
+import { useWallet } from "@/context/WalletContext";
 
 export default function TopBar() {
-  const [isConnected, setIsConnected] = useState(false)
-
-  const toggleWallet = () => {
-    setIsConnected(!isConnected)
-  }
+  const { walletAddress, isConnecting, isCorrectNetwork, connectWallet, switchNetwork } = useWallet();
+  
+  const handleWalletAction = async () => {
+    if (!walletAddress) {
+      await connectWallet();
+    } else if (!isCorrectNetwork) {
+      await switchNetwork();
+    } else {
+      // For disconnect functionality, we'd need to track this in the context
+      // For now, we'll just show the wallet address when connected
+    }
+  };
+  
+  // Format the wallet address for display
+  const formatAddress = (address: string) => {
+    return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+  };
+  
+  // Determine button text based on wallet state
+  const getButtonText = () => {
+    if (isConnecting) return "Connecting...";
+    if (!walletAddress) return "Connect Wallet";
+    if (!isCorrectNetwork) return "Switch Network";
+    return formatAddress(walletAddress);
+  };
+  
+  // Determine button variant based on wallet state
+  const getButtonVariant = () => {
+    if (!walletAddress) return "outline";
+    if (!isCorrectNetwork) return "destructive";
+    return "outline";
+  };
 
   return (
     <header className="w-full border-b border-border bg-card">
@@ -23,21 +51,15 @@ export default function TopBar() {
         </Link>
 
         <div>
-          {isConnected ? (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">0xBD...AC09</span>
-              <Button variant="link" size="sm" onClick={toggleWallet} className="text-sm text-primary">
-                Disconnect
-              </Button>
-            </div>
-          ) : (
-            <Button onClick={toggleWallet} variant="outline">
-              Connect Wallet
-            </Button>
-          )}
+          <Button 
+            onClick={handleWalletAction} 
+            variant={getButtonVariant() as any}
+            disabled={isConnecting}
+          >
+            {getButtonText()}
+          </Button>
         </div>
       </div>
     </header>
-  )
+  );
 }
-
