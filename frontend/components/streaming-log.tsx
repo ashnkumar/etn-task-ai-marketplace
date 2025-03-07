@@ -1,117 +1,152 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState, useRef } from "react"
 import { Loader2 } from "lucide-react"
+import ReactMarkdown from 'react-markdown'
+import { CodeProps } from 'react-markdown/lib/ast-to-react'
+import Prism from 'prismjs'
+
+// Import our custom Prism CSS instead of the default
+import '@/styles/prism.css'
+
+// Import Prism languages
+import 'prismjs/components/prism-javascript'
+import 'prismjs/components/prism-typescript'
+import 'prismjs/components/prism-jsx'
+import 'prismjs/components/prism-tsx'
+import 'prismjs/components/prism-bash'
+import 'prismjs/components/prism-json'
+import 'prismjs/components/prism-python'
+import 'prismjs/components/prism-css'
+import 'prismjs/components/prism-java'
+import 'prismjs/components/prism-c'
+import 'prismjs/components/prism-cpp'
+import 'prismjs/components/prism-go'
+import 'prismjs/components/prism-ruby'
+import 'prismjs/components/prism-rust'
+import 'prismjs/components/prism-markup'
+import 'prismjs/components/prism-markdown'
 
 interface StreamingLogProps {
   isProcessing?: boolean;
   output?: string | null;
+  streamingContent?: string | null; // New prop for streaming content
+  processingState?: "idle" | "payment" | "ai"; // Add processing state type
 }
 
-export default function StreamingLog({ isProcessing = false, output = null }: StreamingLogProps) {
-  const [processingSteps, setProcessingSteps] = useState<string[]>([]);
+export default function StreamingLog({ 
+  isProcessing = false, 
+  output = null, 
+  streamingContent = null,
+  processingState = "idle"
+}: StreamingLogProps) {
+  const [displayContent, setDisplayContent] = useState<string>("");
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Simulate processing steps when isProcessing is true
+  // Auto-scroll to bottom when content updates
   useEffect(() => {
-    if (!isProcessing) return;
-
-    const steps = [
-      "Initializing task...",
-      "Processing input...",
-      "Analyzing content...",
-      "Generating response...",
-      "Applying formatting...",
-      "Optimizing output...",
-      "Finalizing results...",
-    ];
-
-    let currentIndex = 0;
-    const interval = setInterval(() => {
-      if (currentIndex < steps.length) {
-        setProcessingSteps(prev => [...prev, steps[currentIndex]]);
-        currentIndex++;
-      } else {
-        clearInterval(interval);
-      }
-    }, 1000);
-
-    return () => {
-      clearInterval(interval);
-      setProcessingSteps([]);
-    };
-  }, [isProcessing]);
-
-  // Add this log for debugging
-  useEffect(() => {
-    if (output) {
-      console.log("Raw output received:", output);
-      console.log("First 100 chars:", output.substring(0, 100));
+    if (containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
-  }, [output]);
+  }, [displayContent]);
 
-  // Format output with markdown-like syntax
-  const formatOutput = (text: string) => {
-    console.log("Formatting output, length:", text.length);
-    
-    // First, replace any double backslashes with a temporary placeholder
-    let formatted = text.replace(/\\\\/g, '___DOUBLE_BACKSLASH___');
-    
-    // Apply formatting rules
-    formatted = formatted
-      // Code blocks
-      .replace(/```([\s\S]*?)```/g, '<pre class="bg-muted p-3 rounded-md my-2 overflow-x-auto text-xs font-mono">$1</pre>')
-      // Headers
-      .replace(/^# (.*$)/gm, '<h1 class="text-xl font-bold mt-4 mb-2">$1</h1>')
-      .replace(/^## (.*$)/gm, '<h2 class="text-lg font-bold mt-3 mb-2">$1</h2>')
-      .replace(/^### (.*$)/gm, '<h3 class="text-md font-bold mt-3 mb-1">$1</h3>')
-      // Bold
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      // Italic
-      .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      // Lists
-      .replace(/^- (.*$)/gm, '<li class="ml-4">• $1</li>')
-      // Line breaks
-      .replace(/\n/g, '<br/>');
-    
-    // Restore double backslashes
-    formatted = formatted.replace(/___DOUBLE_BACKSLASH___/g, '\\');
-    
-    console.log("After formatting, first 100 chars:", formatted.substring(0, 100));
-    return formatted;
+  // Use either streaming content or output
+  useEffect(() => {
+    if (streamingContent !== null) {
+      setDisplayContent(streamingContent);
+    } else if (output !== null) {
+      setDisplayContent(output);
+    }
+  }, [streamingContent, output]);
+
+  // Apply Prism syntax highlighting after content updates
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      Prism.highlightAll();
+    }
+  }, [displayContent]);
+
+  // Render appropriate loading message based on processing state
+  const renderLoadingMessage = () => {
+    switch (processingState) {
+      case "payment":
+        return (
+          <div className="flex flex-col items-center justify-center h-full">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+            <p className="text-muted-foreground">Confirming payment on blockchain...</p>
+            <p className="text-xs text-muted-foreground mt-2">This may take a few seconds</p>
+          </div>
+        );
+      case "ai":
+        return (
+          <div className="flex flex-col items-center justify-center h-full">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+            <p className="text-muted-foreground">Processing AI request...</p>
+            <p className="text-xs text-muted-foreground mt-2">The AI is generating your content</p>
+          </div>
+        );
+      default:
+        return (
+          <div className="flex flex-col items-center justify-center h-full">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+            <p className="text-muted-foreground">Processing your request...</p>
+          </div>
+        );
+    }
+  };
+
+  // Custom code component for React Markdown
+  const CodeBlock = ({ node, inline, className, children, ...props }: CodeProps) => {
+    const match = /language-(\w+)/.exec(className || '');
+    const language = match ? match[1] : '';
+
+    if (inline) {
+      return (
+        <code className="bg-muted px-1 py-0.5 rounded text-sm" {...props}>
+          {children}
+        </code>
+      );
+    }
+
+    return (
+      <div className="my-4 overflow-hidden rounded-md border">
+        <div className="bg-[#1E293B] px-4 py-1.5 text-xs font-semibold text-slate-200">
+          {language || 'Code'}
+        </div>
+        <pre className="p-4 overflow-x-auto bg-[#1E1E2A] m-0">
+          <code className={`language-${language || 'javascript'}`} {...props}>
+            {children}
+          </code>
+        </pre>
+      </div>
+    );
   };
 
   return (
-    <div className="h-full border border-border rounded-lg bg-card p-5 overflow-y-auto">
-      {!isProcessing && !output ? (
+    <div 
+      ref={containerRef}
+      className="h-full w-full border border-border rounded-lg bg-card p-4 lg:p-5 overflow-y-auto"
+    >
+      {!isProcessing && !displayContent ? (
         <div className="h-full flex items-center justify-center text-muted-foreground">
           <p>Task output will appear here</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {isProcessing && (
-            <>
-              {processingSteps.map((step, index) => (
-                <div key={index} className="text-sm">
-                  <span className="text-primary">&gt;</span> {step}
-                </div>
-              ))}
-              
-              {processingSteps.length < 7 && (
-                <div className="flex items-center text-sm gap-2">
-                  <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                  <span>Processing...</span>
-                </div>
-              )}
-            </>
-          )}
+        <>
+          {isProcessing && !displayContent && renderLoadingMessage()}
           
-          {output && (
-            <div 
-              className="text-sm" 
-              dangerouslySetInnerHTML={{ __html: formatOutput(output) }}
-            />
+          {displayContent && (
+            <div className="prose dark:prose-invert prose-sm md:prose-base max-w-none">
+              <ReactMarkdown
+                components={{
+                  code: CodeBlock
+                }}
+              >
+                {displayContent}
+              </ReactMarkdown>
+            </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );

@@ -1,56 +1,295 @@
-// Service types
-export type ServiceType = 'text' | 'image' | 'code' | 'data';
+import axios from 'axios';
 
-// Service interface
+const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
+
+// Types
 export interface Service {
   id: string;
   name: string;
   description: string;
   basePrice: string;
-  type: ServiceType;
-  image?: string;
+  type: string;
+  supportedFiles?: string[];
 }
 
-// Fallback services in case the API is unavailable
+// Default services array for static rendering
 export const services: Service[] = [
   {
-    id: "language-translator",
-    name: "Language Translator",
-    description: "Translate text between over 100 languages with high accuracy.",
-    basePrice: "0.05",
+    id: "chatbot",
+    name: "AI Chatbot",
+    description: "Interactive AI assistant that can answer questions and provide information.",
+    basePrice: "5",
     type: "text"
-  },
-  {
-    id: "image-generator",
-    name: "AI Image Generator",
-    description: "Create stunning images from text descriptions.",
-    basePrice: "0.20",
-    type: "image"
   },
   {
     id: "content-writer",
     name: "Content Writer",
-    description: "Generate high-quality articles, blog posts, and marketing copy.",
-    basePrice: "0.15",
+    description: "Creates high-quality articles, blog posts, and marketing copy.",
+    basePrice: "10",
     type: "text"
   },
   {
     id: "code-assistant",
     name: "Code Assistant",
-    description: "Get help with programming tasks, debugging, and code optimization.",
-    basePrice: "0.10",
+    description: "Helps with programming tasks, debugging, and code generation.",
+    basePrice: "15",
     type: "code"
+  },
+  {
+    id: "image-generator",
+    name: "Image Generator",
+    description: "Creates custom images based on your descriptions.",
+    basePrice: "20",
+    type: "image"
   },
   {
     id: "data-analyzer",
     name: "Data Analyzer",
-    description: "Extract insights from your data with ML-powered analysis.",
-    basePrice: "0.25",
+    description: "Analyzes data and provides insights and visualizations.",
+    basePrice: "25",
     type: "data"
+  },
+  {
+    id: "translator",
+    name: "Language Translator",
+    description: "Translates text between multiple languages accurately.",
+    basePrice: "8",
+    type: "text"
+  },
+  {
+    id: "summarizer",
+    name: "Text Summarizer",
+    description: "Creates concise summaries of longer documents and articles.",
+    basePrice: "7",
+    type: "text"
+  },
+  {
+    id: "seo-optimizer",
+    name: "SEO Optimizer",
+    description: "Suggests improvements to make your content rank higher in search results.",
+    basePrice: "12",
+    type: "text"
   }
 ];
 
-// Function to get a service by ID
-export function getServiceById(id: string): Service | undefined {
-  return services.find(service => service.id === id);
+export interface ServicesResponse {
+  services: Service[];
+}
+
+export interface ServiceResponse {
+  service: Service;
+}
+
+export interface RequestIdResponse {
+  requestId: string;
+  estimatedCost: string;
+}
+
+export interface PaymentVerificationResponse {
+  paid: boolean;
+}
+
+export interface ProcessRequestResponse {
+  status: string;
+  result: string;
+  serviceType: string;
+}
+
+// EventSource Response Handler Type
+export type StreamingResponseHandler = {
+  onContent: (content: string) => void;
+  onError: (error: string) => void;
+  onComplete: () => void;
+};
+
+// Get all services
+export const getServices = async (): Promise<Service[]> => {
+  try {
+    const response = await axios.get<ServicesResponse>(`${API_URL}/services`);
+    return response.data.services;
+  } catch (error) {
+    console.error('Error fetching services:', error);
+    return [];
+  }
+};
+
+// Get a specific service
+export const getService = async (serviceId: string): Promise<Service | null> => {
+  try {
+    const response = await axios.get<ServiceResponse>(`${API_URL}/services/${serviceId}`);
+    return response.data.service;
+  } catch (error) {
+    console.error(`Error fetching service ${serviceId}:`, error);
+    return null;
+  }
+};
+
+// Generate a request ID
+export const generateRequestId = async (serviceId: string, input: string): Promise<RequestIdResponse | null> => {
+  try {
+    const response = await axios.post<RequestIdResponse>(`${API_URL}/services/request-id`, {
+      serviceId,
+      input
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error generating request ID:', error);
+    return null;
+  }
+};
+
+// Verify payment
+export const verifyPayment = async (requestId: string): Promise<boolean> => {
+  try {
+    const response = await axios.get<PaymentVerificationResponse>(`${API_URL}/services/verify-payment/${requestId}`);
+    return response.data.paid;
+  } catch (error) {
+    console.error('Error verifying payment:', error);
+    return false;
+  }
+};
+
+// Process a service request (non-streaming)
+export const processRequest = async (
+  serviceId: string,
+  requestId: string,
+  input: string,
+  options: any = {}
+): Promise<ProcessRequestResponse | null> => {
+  try {
+    const response = await axios.post<ProcessRequestResponse>(`${API_URL}/services/process`, {
+      serviceId,
+      requestId,
+      input,
+      options
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error('Error processing request:', error);
+    
+    // If the error is a payment required error, return a specific response
+    if (error.response?.status === 402) {
+      return {
+        status: 'unpaid',
+        result: 'Payment required',
+        serviceType: 'error'
+      };
+    }
+    
+    return null;
+  }
+};
+
+// Process a service request with streaming
+export const processRequestStream = (
+  serviceId: string,
+  requestId: string,
+  input: string,
+  handlers: StreamingResponseHandler,
+  options: any = {}
+): { abort: () => void } => {
+  const controller = new AbortController();
+  const signal = controller.signal;
+  
+  // Use fetch with streaming
+  (async () => {
+    try {
+      const response = await fetch(`${API_URL}/services/process-stream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          serviceId,
+          requestId,
+          input,
+          options
+        }),
+        signal
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        handlers.onError(errorData.error || 'Failed to process request');
+        return;
+      }
+      
+      if (!response.body) {
+        handlers.onError('ReadableStream not supported');
+        return;
+      }
+      
+      // Set up the stream reader
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      
+      let buffer = '';
+      
+      while (true) {
+        const { value, done } = await reader.read();
+        
+        if (done) {
+          // Process any remaining data in buffer
+          if (buffer.trim()) {
+            processEventData(buffer, handlers);
+          }
+          handlers.onComplete();
+          break;
+        }
+        
+        // Decode the data
+        const chunk = decoder.decode(value, { stream: true });
+        buffer += chunk;
+        
+        // Process complete events in the buffer
+        const lines = buffer.split('\n\n');
+        buffer = lines.pop() || ''; // Keep the last incomplete chunk in the buffer
+        
+        for (const line of lines) {
+          if (line.trim().startsWith('data:')) {
+            processEventData(line, handlers);
+          }
+        }
+      }
+    } catch (error) {
+      if ((error as { name: string }).name === 'AbortError') {
+        console.log('Stream aborted by user');
+      } else {
+        console.error('Stream error:', error);
+        handlers.onError((error as Error).message || 'Streaming error occurred');
+      }
+    }
+  })();
+  
+  // Return an object with the abort method
+  return {
+    abort: () => controller.abort()
+  };
+};
+
+// Helper function to process SSE data
+function processEventData(eventData: string, handlers: StreamingResponseHandler) {
+  const dataPrefix = 'data:';
+  if (eventData.trim().startsWith(dataPrefix)) {
+    try {
+      const jsonStr = eventData.trim().slice(dataPrefix.length).trim();
+      const data = JSON.parse(jsonStr);
+      
+      if (data.error) {
+        handlers.onError(data.error);
+        return;
+      }
+      
+      if (data.content !== undefined) {
+        handlers.onContent(data.content);
+      }
+      
+      if (data.done) {
+        handlers.onComplete();
+      }
+    } catch (error) {
+      console.error('Error parsing event data:', error, eventData);
+      handlers.onError('Error parsing response');
+    }
+  }
 }

@@ -1,18 +1,26 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { notFound, useParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, AlertCircle } from "lucide-react";
 import StreamingLog from "@/components/streaming-log";
 import ImagePreview from "@/components/image-preview";
 import { useWallet } from "@/context/WalletContext";
-import { generateRequestId, getService, verifyPayment, processRequest } from "@/lib/api";
+import { 
+  generateRequestId, 
+  getService, 
+  verifyPayment, 
+  processRequest, 
+  processRequestStream,
+  StreamingResponseHandler
+} from "@/lib/api";
 import { makePayment } from "@/lib/blockchain";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function ServicePage() {
   const params = useParams<{ slug: string }>();
@@ -24,12 +32,18 @@ export default function ServicePage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
   const [result, setResult] = useState<string | null>(null);
+  const [streamingContent, setStreamingContent] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   
   // For payment
   const [requestId, setRequestId] = useState<string | null>(null);
   const [estimatedCost, setEstimatedCost] = useState<string>("0.00 ETN");
+  const [paymentStatus, setPaymentStatus] = useState<"idle" | "pending" | "verifying" | "processing" | "success" | "error">("idle");
+  const [processingState, setProcessingState] = useState<"idle" | "payment" | "ai">("idle");
+  
+  // To track streaming state
+  const streamAbortRef = useRef<{ abort: () => void } | null>(null);
 
   // Fetch service details
   useEffect(() => {
@@ -50,6 +64,15 @@ export default function ServicePage() {
 
     fetchService();
   }, [params.slug]);
+
+  // Cleanup streaming on unmount
+  useEffect(() => {
+    return () => {
+      if (streamAbortRef.current) {
+        streamAbortRef.current.abort();
+      }
+    };
+  }, []);
 
   // Handle input change
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -102,6 +125,9 @@ export default function ServicePage() {
     if (!requestId || !walletAddress) return;
 
     setIsProcessing(true);
+    setPaymentStatus("pending");
+    setProcessingState("payment");
+    setStreamingContent(null);
     
     try {
       // Make payment
@@ -111,14 +137,18 @@ export default function ServicePage() {
         setError("Payment failed. Please try again.");
         setIsProcessing(false);
         setIsPaying(false);
+        setPaymentStatus("error");
+        setProcessingState("idle");
         return;
       }
+      
+      setPaymentStatus("verifying");
 
       // Verify payment (with retry)
       let isPaid = false;
       let attempts = 0;
       
-      while (!isPaid && attempts < 10) {
+      while (!isPaid && attempts < 15) {
         attempts++;
         isPaid = await verifyPayment(requestId);
         
@@ -131,31 +161,68 @@ export default function ServicePage() {
       }
       
       if (!isPaid) {
-        setError("Payment verification failed. If you made a payment, please try processing again.");
+        setError("Payment verification timed out. If you made a payment, please wait a moment and try again.");
         setIsProcessing(false);
         setIsPaying(false);
+        setPaymentStatus("error");
+        setProcessingState("idle");
         return;
       }
-
-      // Process the request
-      const processingResult = await processRequest(service.id, requestId, input);
       
-      if (processingResult) {
-        // Handle different service types
-        if (processingResult.serviceType === 'image' && typeof processingResult.result === 'string') {
-          setImageUrl(processingResult.result);
+      // Payment verified, now process the request
+      setPaymentStatus("processing");
+      setProcessingState("ai");
+      
+      // For image generation, we don't use streaming
+      if (service.type === 'image') {
+        // Process the request without streaming
+        const processingResult = await processRequest(service.id, requestId, input);
+        
+        if (processingResult) {
+          if (processingResult.serviceType === 'image' && typeof processingResult.result === 'string') {
+            setImageUrl(processingResult.result);
+          } else {
+            setResult(processingResult.result);
+          }
+          setPaymentStatus("success");
         } else {
-          setResult(processingResult.result);
+          throw new Error("Failed to process request");
         }
       } else {
-        throw new Error("Failed to process request");
+        // For text-based services, use streaming
+        setStreamingContent(""); // Initialize with empty string to start displaying
+        
+        const handlers: StreamingResponseHandler = {
+          onContent: (content) => {
+            setStreamingContent(prevContent => (prevContent || "") + content);
+          },
+          onError: (errorMsg) => {
+            setError(errorMsg);
+            setPaymentStatus("error");
+            setIsProcessing(false);
+          },
+          onComplete: () => {
+            setPaymentStatus("success");
+            setIsProcessing(false);
+          }
+        };
+        
+        // Start streaming
+        const streamController = processRequestStream(service.id, requestId, input, handlers);
+        streamAbortRef.current = streamController;
       }
     } catch (err) {
       console.error("Error processing request:", err);
       setError("Failed to process request. Please try again.");
+      setPaymentStatus("error");
+      setProcessingState("idle");
     } finally {
-      setIsProcessing(false);
-      setIsPaying(false);
+      if (service.type === 'image') {
+        setIsProcessing(false);
+        setIsPaying(false);
+      }
+      // For streaming, these states will be set by the onComplete callback
+      
       // Reset requestId to allow new requests
       setRequestId(null);
     }
@@ -166,7 +233,26 @@ export default function ServicePage() {
     setIsPaying(false);
     setRequestId(null);
   };
+  
+  // Reset everything for a new request
+  const handleNewRequest = () => {
+    // Abort any ongoing stream
+    if (streamAbortRef.current) {
+      streamAbortRef.current.abort();
+      streamAbortRef.current = null;
+    }
+    
+    setInput("");
+    setResult(null);
+    setStreamingContent(null);
+    setImageUrl(null);
+    setError(null);
+    setRequestId(null);
+    setPaymentStatus("idle");
+    setProcessingState("idle");
+  };
 
+  // Loading state
   if (loading) {
     return (
       <div className="container max-w-5xl py-6 md:py-8 px-4">
@@ -177,9 +263,15 @@ export default function ServicePage() {
     );
   }
 
+  // 404 if service not found
   if (!service) {
     return notFound();
   }
+
+  // Check if content is ready (either streaming or completed)
+  const hasContent = (streamingContent !== null && streamingContent !== "") || 
+                     (result !== null && result !== "") || 
+                     (imageUrl !== null);
 
   return (
     <div className="container max-w-5xl py-6 md:py-8 px-4">
@@ -188,9 +280,9 @@ export default function ServicePage() {
         Back to marketplace
       </Link>
 
-      <div className="flex flex-col md:flex-row gap-8">
-        {/* Left Column - Service Info & Input */}
-        <div className="w-full md:w-1/2 space-y-6">
+      <div className="flex flex-col md:flex-row space-y-6 md:space-y-0 md:space-x-6 px-4 py-6">
+        {/* Left Column - Input */}
+        <div className="w-full md:w-1/3">
           <div>
             <h1 className="text-2xl font-bold">{service.name}</h1>
             <p className="text-sm text-primary mt-1">ETN Task AI Service</p>
@@ -206,85 +298,118 @@ export default function ServicePage() {
             </p>
           </div>
 
-          {!isPaying ? (
-            <div className="space-y-5">
-              <div className="space-y-2">
-                <Label htmlFor="prompt">Your input</Label>
-                <Textarea
-                  id="prompt"
-                  placeholder="Enter your input here..."
-                  className="min-h-[180px] bg-card border-border resize-none"
-                  disabled={isProcessing}
-                  value={input}
-                  onChange={handleInputChange}
-                />
-              </div>
-
-              {service.supportedFiles && service.supportedFiles.length > 0 && (
-                <div className="space-y-2">
-                  <Label htmlFor="file">Upload file (optional)</Label>
-                  <Input 
-                    id="file" 
-                    type="file" 
-                    className="bg-card border-border h-12" 
-                    disabled={isProcessing}
-                    onChange={handleFileUpload}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Supported formats: {service.supportedFiles.join(', ')}
-                  </p>
-                </div>
-              )}
-
-              {error && <p className="text-sm text-destructive">{error}</p>}
-
-              <div className="pt-2">
-                <Button 
-                  onClick={handlePrepareRequest} 
-                  className="w-full md:w-auto" 
-                  disabled={isProcessing || !input.trim()}
-                >
-                  {isProcessing ? "Processing..." : `Process with ${service.basePrice}+ ETN`}
-                </Button>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Final price may vary depending on input length.
-                </p>
-              </div>
+          {paymentStatus === "success" && hasContent ? (
+            <div className="border border-green-500 bg-green-50 dark:bg-green-950/20 rounded-lg p-5 space-y-4">
+              <h2 className="text-lg font-medium text-green-700 dark:text-green-400">Request Completed Successfully!</h2>
+              <p className="text-sm text-muted-foreground">
+                Your request has been processed successfully. The result is displayed on the right.
+              </p>
+              <Button onClick={handleNewRequest}>Start New Request</Button>
             </div>
           ) : (
-            <div className="border border-border rounded-lg p-5 bg-card">
-              <h2 className="text-lg font-medium mb-3">Confirm Payment</h2>
-              <p className="mb-1">Cost: <span className="font-semibold">{estimatedCost}</span></p>
-              <p className="text-sm text-muted-foreground mb-4">
-                Your input: {input.length > 100 ? input.substring(0, 100) + "..." : input}
-              </p>
+            <>
+              {!isPaying ? (
+                <div className="space-y-5">
+                  <div className="space-y-2">
+                    <Label htmlFor="prompt">Your input</Label>
+                    <Textarea
+                      id="prompt"
+                      placeholder="Enter your input here..."
+                      className="min-h-[180px] bg-card border-border resize-none"
+                      disabled={isProcessing}
+                      value={input}
+                      onChange={handleInputChange}
+                    />
+                  </div>
 
-              <div className="flex space-x-3">
-                <Button 
-                  onClick={handleProcessRequest} 
-                  disabled={isProcessing}
-                  className="flex-1"
-                >
-                  {isProcessing ? "Processing..." : "Confirm & Pay"}
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={handleCancelPayment}
-                  disabled={isProcessing}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
+                  {service.supportedFiles && service.supportedFiles.length > 0 && (
+                    <div className="space-y-2">
+                      <Label htmlFor="file">Upload file (optional)</Label>
+                      <Input 
+                        id="file" 
+                        type="file" 
+                        className="bg-card border-border h-12" 
+                        disabled={isProcessing}
+                        onChange={handleFileUpload}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Supported formats: {service.supportedFiles.join(', ')}
+                      </p>
+                    </div>
+                  )}
+
+                  {error && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle>Error</AlertTitle>
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  <div className="pt-2">
+                    <Button 
+                      onClick={handlePrepareRequest} 
+                      className="w-full md:w-auto" 
+                      disabled={isProcessing || !input.trim()}
+                    >
+                      {isProcessing ? "Processing..." : `Process with ${service.basePrice}+ ETN`}
+                    </Button>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Final price may vary depending on input length.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="border border-border rounded-lg p-5 bg-card">
+                  <h2 className="text-lg font-medium mb-3">Confirm Payment</h2>
+                  <p className="mb-1">Cost: <span className="font-semibold">{estimatedCost}</span></p>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Your input: {input.length > 100 ? input.substring(0, 100) + "..." : input}
+                  </p>
+
+                  <div className="flex space-x-3">
+                    <Button 
+                      onClick={handleProcessRequest} 
+                      disabled={isProcessing}
+                      className="flex-1"
+                    >
+                      {isProcessing ? (
+                        <>
+                          {paymentStatus === "pending" && "Awaiting payment..."}
+                          {paymentStatus === "verifying" && "Verifying payment..."}
+                          {paymentStatus === "processing" && "Processing request..."}
+                        </>
+                      ) : "Confirm & Pay"}
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={handleCancelPayment}
+                      disabled={isProcessing}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
 
         {/* Right Column - Output */}
-        <div className="w-full md:w-1/2 h-[500px] md:h-auto">
+        <div className="w-full md:w-2/3 h-[500px] md:h-auto">
           {service.type === "image" ? (
-            <ImagePreview isProcessing={isProcessing} imageUrl={imageUrl} />
+            <ImagePreview 
+              isProcessing={isProcessing} 
+              imageUrl={imageUrl}
+              processingState={processingState}
+            />
           ) : (
-            <StreamingLog isProcessing={isProcessing} output={result} />
+            <StreamingLog 
+              isProcessing={isProcessing} 
+              output={result}
+              streamingContent={streamingContent}
+              processingState={processingState}
+            />
           )}
         </div>
       </div>

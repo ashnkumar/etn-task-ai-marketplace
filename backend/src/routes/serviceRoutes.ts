@@ -15,7 +15,10 @@ router.post('/request-id', serviceController.generateRequestId);
 // Verify payment for a requestId
 router.get('/verify-payment/:requestId', serviceController.verifyPayment);
 
-// Process a service request
+// Process a service request (non-streaming)
 router.post('/process', serviceController.processRequest);
+
+// Process a service request with streaming
+router.post('/process-stream', serviceController.processRequestStream);
 
 export default router;

@@ -22,6 +22,10 @@
     "concurrently": "^8.2.2"
   },
   "dependencies": {
+    "@types/prismjs": "^1.26.5",
+    "@types/react-syntax-highlighter": "^15.5.13",
+    "prismjs": "^1.29.0",
+    "react-syntax-highlighter": "^15.6.1",
     "sqlite3": "^5.1.7"
   }
 }

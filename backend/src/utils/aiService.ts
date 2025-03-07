@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { Service, getServiceById } from '../config/services';
 import dotenv from 'dotenv';
+import { Response } from 'express';
 
 dotenv.config();
 
@@ -9,7 +10,7 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Function to process a service request
+// Function to process a service request (non-streaming)
 export const processServiceRequest = async (
   serviceId: string,
   input: string,
@@ -22,11 +23,13 @@ export const processServiceRequest = async (
     throw new Error(`Service ${serviceId} not found`);
   }
   
+  console.log(`Processing service request: ${serviceId}`);
+  console.log(`Input (first 50 chars): "${input.substring(0, 50)}..."`);
+  console.log(`Environment: ${process.env.NODE_ENV}`);
+  
   // Check for mock responses in development mode
-  console.log(`NODE_ENV: ${process.env.NODE_ENV}, Has mock responses: ${!!service.mockResponses}`);
   if (process.env.NODE_ENV === 'development' && service.mockResponses && service.mockResponses[input]) {
     console.log(`Using mock response for service ${serviceId}`);
-    console.log(`Mock response first 100 chars: "${service.mockResponses[input].substring(0, 100)}..."`);
     return { 
       result: service.mockResponses[input],
       serviceType: service.type
@@ -63,18 +66,94 @@ export const processServiceRequest = async (
   }
 };
 
+// Function to process a service request with streaming
+export const processServiceRequestStream = async (
+  serviceId: string,
+  input: string,
+  res: Response,
+  options: any = {}
+): Promise<void> => {
+  // Get service config
+  const service = getServiceById(serviceId);
+  
+  if (!service) {
+    res.write('data: {"error": "Service not found"}\n\n');
+    res.end();
+    return;
+  }
+  
+  console.log(`Processing streaming service request: ${serviceId}`);
+  console.log(`Input (first 50 chars): "${input.substring(0, 50)}..."`);
+  
+  // Set up SSE headers
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  
+  // Check for mock responses in development mode
+  if (process.env.NODE_ENV === 'development' && service.mockResponses && service.mockResponses[input]) {
+    console.log(`Using mock response for service ${serviceId} (streaming)`);
+    
+    // Send mock response in chunks to simulate streaming
+    const mockResponse = service.mockResponses[input];
+    const chunkSize = 10;
+    
+    // Send an initial empty delta to start the stream
+    res.write(`data: ${JSON.stringify({ content: "", done: false })}\n\n`);
+    
+    for (let i = 0; i < mockResponse.length; i += chunkSize) {
+      const chunk = mockResponse.substring(i, i + chunkSize);
+      // Add a small delay to simulate real streaming
+      await new Promise(resolve => setTimeout(resolve, 50));
+      res.write(`data: ${JSON.stringify({ content: chunk, done: false })}\n\n`);
+    }
+    
+    // End the stream
+    res.write(`data: ${JSON.stringify({ content: "", done: true })}\n\n`);
+    res.end();
+    return;
+  }
+  
+  try {
+    switch (service.type) {
+      case 'text':
+        await streamTextService(service, input, res, options);
+        break;
+      case 'code':
+        await streamCodeService(service, input, res, options);
+        break;
+      case 'data':
+        await streamDataService(service, input, res, options);
+        break;
+      case 'image':
+        // Image generation doesn't support streaming
+        const imageResult = await processImageService(service, input, options);
+        res.write(`data: ${JSON.stringify({ content: imageResult.result, done: true, serviceType: 'image' })}\n\n`);
+        res.end();
+        break;
+      default:
+        res.write(`data: ${JSON.stringify({ error: `Unsupported service type: ${service.type}`, done: true })}\n\n`);
+        res.end();
+    }
+  } catch (error) {
+    console.error(`Error processing streaming ${service.type} service:`, error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    res.write(`data: ${JSON.stringify({ error: `Error: ${errorMessage}`, done: true })}\n\n`);
+    res.end();
+  }
+};
+
 // Process text-based services (chatbot, translation, content writing)
 async function processTextService(service: Service, input: string, options: any): Promise<any> {
-  console.log(`Processing text service: ${service.id}, input: "${input.substring(0, 50)}..."`);
+  console.log(`Processing text service with model: ${service.aiModel || "gpt-3.5-turbo"}`);
   
   try {
     // Use OpenAI API
-    console.log(`Calling OpenAI with model: ${service.aiModel || "gpt-4o-mini"}`);
     const completion = await openai.chat.completions.create({
-      model: service.aiModel || "gpt-4o-mini",
+      model: service.aiModel || "gpt-3.5-turbo",
       messages: [{ role: "user", content: input }],
       temperature: options.temperature || 0.7,
-      max_tokens: options.maxTokens || 500,
+      max_tokens: options.maxTokens || 1500,
     });
     
     const result = completion.choices[0].message?.content || "No response generated";
@@ -91,54 +170,206 @@ async function processTextService(service: Service, input: string, options: any)
   }
 }
 
+// Stream text-based services
+async function streamTextService(service: Service, input: string, res: Response, options: any): Promise<void> {
+  console.log(`Streaming text service with model: ${service.aiModel || "gpt-3.5-turbo"}`);
+  
+  try {
+    // Use OpenAI API with streaming
+    const stream = await openai.chat.completions.create({
+      model: service.aiModel || "gpt-3.5-turbo",
+      messages: [{ role: "user", content: input }],
+      temperature: options.temperature || 0.7,
+      max_tokens: options.maxTokens || 1500,
+      stream: true,
+    });
+    
+    // Send an initial empty delta to start the stream
+    res.write(`data: ${JSON.stringify({ content: "", done: false })}\n\n`);
+    
+    // Process the stream
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content || "";
+      if (content) {
+        res.write(`data: ${JSON.stringify({ content, done: false })}\n\n`);
+      }
+    }
+    
+    // End the stream
+    res.write(`data: ${JSON.stringify({ content: "", done: true })}\n\n`);
+    res.end();
+    
+    console.log(`Text streaming completed for service ${service.id}`);
+  } catch (error) {
+    console.error("OpenAI API streaming error:", error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    res.write(`data: ${JSON.stringify({ error: `Error: ${errorMessage}`, done: true })}\n\n`);
+    res.end();
+  }
+}
+
 // Process image-based services (image generation)
 async function processImageService(service: Service, input: string, options: any): Promise<any> {
-  // Use DALL-E API
-  const response = await openai.images.generate({
-    prompt: input,
-    n: 1,
-    size: options.size || "512x512",
-  });
+  console.log(`Processing image generation with prompt: "${input.substring(0, 50)}..."`);
   
-  return { 
-    result: response.data[0].url || "No image generated",
-    serviceType: 'image'
-  };
+  try {
+    // Use DALL-E API
+    const response = await openai.images.generate({
+      model: "dall-e-3",
+      prompt: input,
+      n: 1,
+      size: options.size || "1024x1024",
+    });
+    
+    const imageUrl = response.data[0].url;
+    console.log(`Image generated, URL: ${imageUrl}`);
+    
+    return { 
+      result: imageUrl,
+      serviceType: 'image'
+    };
+  } catch (error) {
+    console.error("DALL-E API error:", error);
+    throw error;
+  }
 }
 
 // Process code-based services
 async function processCodeService(service: Service, input: string, options: any): Promise<any> {
-  // Use OpenAI with code-specific prompt
-  const codePrompt = `Write code in response to this request. Format your response with proper syntax highlighting with markdown code blocks: ${input}`;
+  console.log(`Processing code service with prompt: "${input.substring(0, 50)}..."`);
   
-  const completion = await openai.chat.completions.create({
-    model: service.aiModel || "gpt-4o-mini",
-    messages: [{ role: "user", content: codePrompt }],
-    temperature: options.temperature || 0.3, // Lower temperature for code
-    max_tokens: options.maxTokens || 1000,
-  });
+  try {
+    // Use OpenAI with code-specific prompt
+    const codePrompt = `You are a coding assistant. Provide working, well-documented code in response to this request: ${input}`;
+    
+    const completion = await openai.chat.completions.create({
+      model: service.aiModel || "gpt-3.5-turbo",
+      messages: [{ role: "system", content: "You are a coding assistant that provides clean, well-documented code. Format your response using markdown." },
+                { role: "user", content: input }],
+      temperature: options.temperature || 0.3, // Lower temperature for code
+      max_tokens: options.maxTokens || 1500,
+    });
+    
+    const result = completion.choices[0].message?.content || "No code generated";
+    console.log(`Code response received, length: ${result.length} chars`);
+    
+    return { 
+      result,
+      serviceType: 'code'
+    };
+  } catch (error) {
+    console.error("OpenAI API error for code generation:", error);
+    throw error;
+  }
+}
+
+// Stream code-based services
+async function streamCodeService(service: Service, input: string, res: Response, options: any): Promise<void> {
+  console.log(`Streaming code service with prompt: "${input.substring(0, 50)}..."`);
   
-  return { 
-    result: completion.choices[0].message?.content || "No code generated",
-    serviceType: 'code'
-  };
+  try {
+    // Use OpenAI with code-specific prompt and streaming
+    const codePrompt = `You are a coding assistant. Provide working, well-documented code in response to this request: ${input}`;
+    
+    const stream = await openai.chat.completions.create({
+      model: service.aiModel || "gpt-3.5-turbo",
+      messages: [{ role: "system", content: "You are a coding assistant that provides clean, well-documented code. Format your response using markdown." },
+                { role: "user", content: input }],
+      temperature: options.temperature || 0.3,
+      max_tokens: options.maxTokens || 1500,
+      stream: true,
+    });
+    
+    // Send an initial empty delta to start the stream
+    res.write(`data: ${JSON.stringify({ content: "", done: false })}\n\n`);
+    
+    // Process the stream
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content || "";
+      if (content) {
+        res.write(`data: ${JSON.stringify({ content, done: false })}\n\n`);
+      }
+    }
+    
+    // End the stream
+    res.write(`data: ${JSON.stringify({ content: "", done: true })}\n\n`);
+    res.end();
+    
+    console.log(`Code streaming completed for service ${service.id}`);
+  } catch (error) {
+    console.error("OpenAI API streaming error for code:", error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    res.write(`data: ${JSON.stringify({ error: `Error: ${errorMessage}`, done: true })}\n\n`);
+    res.end();
+  }
 }
 
 // Process data analysis services
 async function processDataService(service: Service, input: string, options: any): Promise<any> {
-  // For now, handle data analysis using text models
-  // In a real implementation, this would be more sophisticated
-  const dataPrompt = `Analyze the following data and provide insights: ${input}`;
+  console.log(`Processing data analysis with input: "${input.substring(0, 50)}..."`);
   
-  const completion = await openai.chat.completions.create({
-    model: service.aiModel || "gpt-4o-mini",
-    messages: [{ role: "user", content: dataPrompt }],
-    temperature: options.temperature || 0.5,
-    max_tokens: options.maxTokens || 1000,
-  });
+  try {
+    // For now, handle data analysis using text models
+    const dataPrompt = `You are a data analyst. Analyze the following data and provide detailed insights: ${input}`;
+    
+    const completion = await openai.chat.completions.create({
+      model: service.aiModel || "gpt-3.5-turbo",
+      messages: [{ role: "system", content: "You are a data analyst who provides clear, insightful analysis with markdown formatting." },
+                { role: "user", content: input }],
+      temperature: options.temperature || 0.5,
+      max_tokens: options.maxTokens || 1500,
+    });
+    
+    const result = completion.choices[0].message?.content || "No analysis generated";
+    console.log(`Data analysis response received, length: ${result.length} chars`);
+    
+    return { 
+      result,
+      serviceType: 'data'
+    };
+  } catch (error) {
+    console.error("OpenAI API error for data analysis:", error);
+    throw error;
+  }
+}
+
+// Stream data analysis services
+async function streamDataService(service: Service, input: string, res: Response, options: any): Promise<void> {
+  console.log(`Streaming data analysis with input: "${input.substring(0, 50)}..."`);
   
-  return { 
-    result: completion.choices[0].message?.content || "No analysis generated",
-    serviceType: 'data'
-  };
-} 
+  try {
+    // For data analysis using text models with streaming
+    const dataPrompt = `You are a data analyst. Analyze the following data and provide detailed insights: ${input}`;
+    
+    const stream = await openai.chat.completions.create({
+      model: service.aiModel || "gpt-3.5-turbo",
+      messages: [{ role: "system", content: "You are a data analyst who provides clear, insightful analysis with markdown formatting." },
+                { role: "user", content: input }],
+      temperature: options.temperature || 0.5,
+      max_tokens: options.maxTokens || 1500,
+      stream: true,
+    });
+    
+    // Send an initial empty delta to start the stream
+    res.write(`data: ${JSON.stringify({ content: "", done: false })}\n\n`);
+    
+    // Process the stream
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content || "";
+      if (content) {
+        res.write(`data: ${JSON.stringify({ content, done: false })}\n\n`);
+      }
+    }
+    
+    // End the stream
+    res.write(`data: ${JSON.stringify({ content: "", done: true })}\n\n`);
+    res.end();
+    
+    console.log(`Data analysis streaming completed for service ${service.id}`);
+  } catch (error) {
+    console.error("OpenAI API streaming error for data analysis:", error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    res.write(`data: ${JSON.stringify({ error: `Error: ${errorMessage}`, done: true })}\n\n`);
+    res.end();
+  }
+}
