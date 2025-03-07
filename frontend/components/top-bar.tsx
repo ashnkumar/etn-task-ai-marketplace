@@ -3,20 +3,21 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Zap } from "lucide-react";
+import { Zap, LogOut, RefreshCw } from "lucide-react";
 import { useWallet } from "@/context/WalletContext";
 
 export default function TopBar() {
-  const { walletAddress, isConnecting, isCorrectNetwork, connectWallet, switchNetwork } = useWallet();
+  const { walletAddress, isConnecting, isCorrectNetwork, connectWallet, switchNetwork, disconnectWallet } = useWallet();
   
   const handleWalletAction = async () => {
+    console.log("Wallet action clicked");
     if (!walletAddress) {
       await connectWallet();
     } else if (!isCorrectNetwork) {
       await switchNetwork();
     } else {
-      // For disconnect functionality, we'd need to track this in the context
-      // For now, we'll just show the wallet address when connected
+      // Now we have disconnect functionality
+      disconnectWallet();
     }
   };
   
@@ -40,6 +41,13 @@ export default function TopBar() {
     return "outline";
   };
 
+  // Get button icon based on wallet state
+  const getButtonIcon = () => {
+    if (!walletAddress) return null;
+    if (!isCorrectNetwork) return <RefreshCw className="h-4 w-4 mr-2" />;
+    return <LogOut className="h-4 w-4 mr-2" />;
+  };
+
   return (
     <header className="w-full border-b border-border bg-card">
       <div className="container flex h-16 items-center justify-between px-4 md:px-6">
@@ -55,7 +63,9 @@ export default function TopBar() {
             onClick={handleWalletAction} 
             variant={getButtonVariant() as any}
             disabled={isConnecting}
+            className="flex items-center"
           >
+            {getButtonIcon()}
             {getButtonText()}
           </Button>
         </div>

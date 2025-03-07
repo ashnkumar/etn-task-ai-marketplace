@@ -9,6 +9,7 @@ interface WalletContextType {
   isCorrectNetwork: boolean;
   connectWallet: () => Promise<void>;
   switchNetwork: () => Promise<void>;
+  disconnectWallet: () => void;
 }
 
 const WalletContext = createContext<WalletContextType>({
@@ -17,6 +18,7 @@ const WalletContext = createContext<WalletContextType>({
   isCorrectNetwork: false,
   connectWallet: async () => {},
   switchNetwork: async () => {},
+  disconnectWallet: () => {},
 });
 
 export const useWallet = () => useContext(WalletContext);
@@ -71,6 +73,15 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       console.error('Failed to switch network:', error);
     }
   };
+  
+  // Handle wallet disconnection
+  const handleDisconnectWallet = () => {
+    setWalletAddress(null);
+    setIsCorrectNetwork(false);
+    console.log('Wallet disconnected from application state');
+    // Note: This only resets the app state, doesn't disconnect MetaMask
+    // For a true disconnect, users need to disconnect via MetaMask itself
+  };
 
   return (
     <WalletContext.Provider
@@ -80,6 +91,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         isCorrectNetwork,
         connectWallet: handleConnectWallet,
         switchNetwork: handleSwitchNetwork,
+        disconnectWallet: handleDisconnectWallet,
       }}
     >
       {children}
