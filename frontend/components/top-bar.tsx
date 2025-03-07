@@ -1,13 +1,23 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Zap, LogOut, RefreshCw } from "lucide-react";
 import { useWallet } from "@/context/WalletContext";
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose
+} from "@/components/ui/dialog";
 
 export default function TopBar() {
   const { walletAddress, isConnecting, isCorrectNetwork, connectWallet, switchNetwork, disconnectWallet } = useWallet();
+  const [showDisconnectDialog, setShowDisconnectDialog] = useState(false);
   
   const handleWalletAction = async () => {
     console.log("Wallet action clicked");
@@ -16,9 +26,14 @@ export default function TopBar() {
     } else if (!isCorrectNetwork) {
       await switchNetwork();
     } else {
-      // Now we have disconnect functionality
-      disconnectWallet();
+      // Show dialog instead of immediately disconnecting
+      setShowDisconnectDialog(true);
     }
+  };
+  
+  const handleDisconnect = () => {
+    disconnectWallet();
+    setShowDisconnectDialog(false);
   };
   
   // Format the wallet address for display
@@ -49,27 +64,47 @@ export default function TopBar() {
   };
 
   return (
-    <header className="w-full border-b border-border bg-card">
-      <div className="container flex h-16 items-center justify-between px-4 md:px-6">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="flex items-center justify-center w-8 h-8 rounded bg-primary text-primary-foreground">
-            <Zap size={18} />
-          </div>
-          <span className="text-lg font-semibold">ETN Task AI</span>
-        </Link>
+    <>
+      <header className="w-full border-b border-border bg-card">
+        <div className="container flex h-16 items-center justify-between px-4 md:px-6">
+          <Link href="/" className="flex items-center gap-2">
+            <div className="flex items-center justify-center w-8 h-8 rounded bg-primary text-primary-foreground">
+              <Zap size={18} />
+            </div>
+            <span className="text-lg font-semibold">ETN Task AI</span>
+          </Link>
 
-        <div>
-          <Button 
-            onClick={handleWalletAction} 
-            variant={getButtonVariant() as any}
-            disabled={isConnecting}
-            className="flex items-center"
-          >
-            {getButtonIcon()}
-            {getButtonText()}
-          </Button>
+          <div>
+            <Button 
+              onClick={handleWalletAction} 
+              variant={getButtonVariant() as any}
+              disabled={isConnecting}
+              className="flex items-center"
+            >
+              {getButtonIcon()}
+              {getButtonText()}
+            </Button>
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+      
+      <Dialog open={showDisconnectDialog} onOpenChange={setShowDisconnectDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Disconnect Wallet</DialogTitle>
+            <DialogDescription>
+              This will disconnect your wallet from this application.
+              <br /><br />
+              Note: For complete security, you should also disconnect this site in your MetaMask extension.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDisconnectDialog(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDisconnect}>Disconnect</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+    
   );
 }

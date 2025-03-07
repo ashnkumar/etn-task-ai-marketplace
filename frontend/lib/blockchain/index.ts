@@ -2,12 +2,20 @@ import { ethers } from 'ethers';
 import { PaymentHandlerABI, CONTRACT_ADDRESS } from '../../../shared/contracts/PaymentHandler';
 
 // Check if MetaMask is installed
+// In frontend/lib/blockchain/index.ts - modify checkIfWalletIsConnected:
 export const checkIfWalletIsConnected = async (): Promise<string | null> => {
   try {
     const { ethereum } = window as any;
     
     if (!ethereum) {
       console.log("Make sure you have MetaMask installed!");
+      return null;
+    }
+    
+    // Check if the user has explicitly disconnected
+    if (localStorage.getItem("wallet_disconnected") === "true") {
+      console.log("User has explicitly disconnected, not auto-connecting");
+      localStorage.removeItem("wallet_disconnected"); // Clear the flag
       return null;
     }
     
@@ -29,6 +37,7 @@ export const checkIfWalletIsConnected = async (): Promise<string | null> => {
 };
 
 // Connect wallet
+// In frontend/lib/blockchain/index.ts - modify the connectWallet function:
 export const connectWallet = async (): Promise<string | null> => {
   try {
     const { ethereum } = window as any;
@@ -36,6 +45,18 @@ export const connectWallet = async (): Promise<string | null> => {
     if (!ethereum) {
       alert("Please install MetaMask!");
       return null;
+    }
+    
+    // Check if user has manually disconnected
+    const disconnected = localStorage.getItem("wallet_disconnected");
+    if (disconnected === "true") {
+      // Clear the disconnected state
+      localStorage.removeItem("wallet_disconnected");
+      // This will cause MetaMask to prompt for connection again
+      await ethereum.request({
+        method: "wallet_requestPermissions",
+        params: [{ eth_accounts: {} }],
+      });
     }
     
     // Request account access
@@ -46,6 +67,16 @@ export const connectWallet = async (): Promise<string | null> => {
   } catch (error) {
     console.error(error);
     return null;
+  }
+};
+
+export const disconnectWallet = (): void => {
+  try {
+    // Mark the wallet as disconnected in localStorage
+    localStorage.setItem("wallet_disconnected", "true");
+    console.log("Wallet marked as disconnected");
+  } catch (error) {
+    console.error("Error disconnecting wallet:", error);
   }
 };
 

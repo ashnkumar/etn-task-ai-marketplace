@@ -1,7 +1,13 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { checkIfWalletIsConnected, connectWallet, checkNetwork, switchToElectroneum } from '@/lib/blockchain';
+import {
+  checkIfWalletIsConnected,
+  connectWallet,
+  checkNetwork,
+  switchToElectroneum,
+  disconnectWallet
+} from '@/lib/blockchain';
 
 interface WalletContextType {
   walletAddress: string | null;
@@ -76,13 +82,11 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   
   // Handle wallet disconnection
   const handleDisconnectWallet = () => {
+    disconnectWallet();
     setWalletAddress(null);
     setIsCorrectNetwork(false);
-    console.log('Wallet disconnected from application state');
-    // Note: This only resets the app state, doesn't disconnect MetaMask
-    // For a true disconnect, users need to disconnect via MetaMask itself
   };
-
+  
   return (
     <WalletContext.Provider
       value={{
