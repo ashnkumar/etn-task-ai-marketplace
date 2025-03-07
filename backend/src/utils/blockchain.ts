@@ -1,4 +1,3 @@
-// File: backend/src/utils/blockchain.ts
 import { ethers } from 'ethers';
 import dotenv from 'dotenv';
 import { PaymentHandlerABI } from '../../shared/contracts/PaymentHandler';
@@ -11,7 +10,6 @@ const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
 
 if (!CONTRACT_ADDRESS) {
   console.error("ERROR: CONTRACT_ADDRESS is not defined in environment variables");
-  // You could exit the process here, but we'll let it continue and fail more gracefully
 }
 
 console.log("Using contract address:", CONTRACT_ADDRESS);
@@ -57,7 +55,7 @@ export const checkPayment = async (requestId: string): Promise<boolean> => {
     // Check if any event matches our requestId
     const found = events.some(event => {
       const args = event.args;
-      // Note the updated event structure - requestId is the third parameter
+      // The requestId is now the third parameter in the event
       if (args && args.requestId === requestId) {
         console.log(`Found payment for requestId ${requestId} in transaction ${event.transactionHash}`);
         return true;

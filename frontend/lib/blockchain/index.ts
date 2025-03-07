@@ -173,6 +173,7 @@ export const switchToElectroneum = async (): Promise<boolean> => {
 
 // Make payment for a service request
 // In the makePayment function, update to include serviceId:
+// In makePayment function:
 export const makePayment = async (requestId: string, amount: string): Promise<boolean> => {
   try {
     const { ethereum } = window as any;
@@ -187,7 +188,6 @@ export const makePayment = async (requestId: string, amount: string): Promise<bo
     const contract = new ethers.Contract(CONTRACT_ADDRESS, PaymentHandlerABI, signer);
     
     // Extract service ID from the requestId (assuming format like "lan-xxxx" for language-translator)
-    // You may need to modify this based on how you generate requestIds
     const serviceId = getServiceIdFromRequestId(requestId);
     console.log(`Making payment of ${amount} ETN for service ${serviceId}, request: ${requestId}`);
     
@@ -195,7 +195,7 @@ export const makePayment = async (requestId: string, amount: string): Promise<bo
     const cleanAmount = amount.replace(' ETN', '');
     const weiAmount = ethers.utils.parseEther(cleanAmount);
     
-    // Make payment with serviceId and requestId
+    // The AIMarketplace contract needs BOTH serviceId and requestId
     const tx = await contract.makePayment(serviceId, requestId, { value: weiAmount });
     
     // Wait for transaction to be mined
@@ -215,11 +215,11 @@ function getServiceIdFromRequestId(requestId: string): string {
   // corresponding to the service ID
   const prefix = requestId.split('-')[0];
   
-  // Map prefixes to full service IDs - adjust based on your actual service IDs
+  // Map prefixes to full service IDs
   const prefixMap: {[key: string]: string} = {
     "lan": "language-translator",
     "img": "image-generator",
-    "con": "content-writer",
+    "con": "content-writer", 
     "cod": "code-assistant",
     "dat": "data-analyzer"
   };
