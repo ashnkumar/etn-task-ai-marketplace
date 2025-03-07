@@ -73,3 +73,6 @@ export-notepads.js
 # Include cursor backup files
 !.cursor-backup/
 !.cursor-backup/**
+
+#misc
+export-notepads.js
