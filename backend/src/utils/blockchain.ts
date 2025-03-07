@@ -1,29 +1,40 @@
+// File: backend/src/utils/blockchain.ts
 import { ethers } from 'ethers';
 import dotenv from 'dotenv';
+import { PaymentHandlerABI } from '../../shared/contracts/PaymentHandler';
 
+// Make sure environment variables are loaded
 dotenv.config();
 
-// ABI for the PaymentReceived event
-const ABI = [
-  "event PaymentReceived(address indexed sender, uint256 amount, string promptId, uint256 timestamp)"
-];
-
-// Contract address from environment variable
+// Get the contract address directly from environment
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
 
-// Provider setup using Electroneum testnet RPC
-const provider = new ethers.providers.JsonRpcProvider(process.env.ETN_TESTNET_URL);
+if (!CONTRACT_ADDRESS) {
+  console.error("ERROR: CONTRACT_ADDRESS is not defined in environment variables");
+  // You could exit the process here, but we'll let it continue and fail more gracefully
+}
+
+console.log("Using contract address:", CONTRACT_ADDRESS);
+
+// Select the appropriate RPC URL based on environment
+const ENVIRONMENT = process.env.ENVIRONMENT || 'testnet';
+const RPC_URL = ENVIRONMENT === 'mainnet' 
+  ? process.env.ETN_MAINNET_URL 
+  : process.env.ETN_TESTNET_URL;
+
+// Provider setup
+const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
 
 // Create contract instance
-const contract = new ethers.Contract(CONTRACT_ADDRESS!, ABI, provider);
+const contract = new ethers.Contract(CONTRACT_ADDRESS!, PaymentHandlerABI, provider);
 
 // Map to store payments that have been verified
 const verifiedPayments = new Map<string, boolean>();
 
-// Function to check if a payment exists for a promptId
-export const checkPayment = async (promptId: string): Promise<boolean> => {
+// Function to check if a payment exists for a requestId
+export const checkPayment = async (requestId: string): Promise<boolean> => {
   // If we've already verified this payment, return true immediately
-  if (verifiedPayments.get(promptId)) {
+  if (verifiedPayments.get(requestId)) {
     return true;
   }
 
@@ -31,24 +42,24 @@ export const checkPayment = async (promptId: string): Promise<boolean> => {
     // Get the current block number
     const currentBlock = await provider.getBlockNumber();
     
-    // Look for events in the last 100 blocks (adjust as needed)
-    // Electroneum has ~5 second blocks, so 100 blocks is ~8.3 minutes
+    // Look for events in the last 100 blocks
     const fromBlock = Math.max(0, currentBlock - 100);
     
-    console.log(`Checking for payments from block ${fromBlock} to ${currentBlock} for promptId: ${promptId}`);
+    console.log(`Checking for payments from block ${fromBlock} to ${currentBlock} for requestId: ${requestId}`);
     
-    // Query for PaymentReceived events
+    // Query for PaymentReceived events with the updated event structure
     const events = await contract.queryFilter(
-      contract.filters.PaymentReceived(null, null, null, null),
+      contract.filters.PaymentReceived(null, null, null, null, null, null, null),
       fromBlock,
       currentBlock
     );
     
-    // Check if any event matches our promptId
+    // Check if any event matches our requestId
     const found = events.some(event => {
       const args = event.args;
-      if (args && args.promptId === promptId) {
-        console.log(`Found payment for promptId ${promptId} in transaction ${event.transactionHash}`);
+      // Note the updated event structure - requestId is the third parameter
+      if (args && args.requestId === requestId) {
+        console.log(`Found payment for requestId ${requestId} in transaction ${event.transactionHash}`);
         return true;
       }
       return false;
@@ -56,14 +67,14 @@ export const checkPayment = async (promptId: string): Promise<boolean> => {
     
     // If found, store in our map for future quick lookups
     if (found) {
-      verifiedPayments.set(promptId, true);
+      verifiedPayments.set(requestId, true);
       return true;
     }
     
-    // If using development mode and no payment found, simulate a successful payment 50% of the time
+    // Development mode simulation
     if (process.env.NODE_ENV === 'development' && Math.random() > 0.5) {
-      console.log(`Development mode: Simulating payment success for promptId ${promptId}`);
-      verifiedPayments.set(promptId, true);
+      console.log(`Development mode: Simulating payment success for requestId ${requestId}`);
+      verifiedPayments.set(requestId, true);
       return true;
     }
     
@@ -74,7 +85,7 @@ export const checkPayment = async (promptId: string): Promise<boolean> => {
     // In development mode, sometimes return true to allow testing
     if (process.env.NODE_ENV === 'development' && Math.random() > 0.7) {
       console.log(`Development mode: Simulating payment success despite error`);
-      verifiedPayments.set(promptId, true);
+      verifiedPayments.set(requestId, true);
       return true;
     }
     
@@ -89,14 +100,17 @@ export const startPaymentListener = () => {
   
   // Set up event listener for real-time payment notifications
   try {
-    contract.on("PaymentReceived", (sender, amount, promptId, timestamp) => {
+    contract.on("PaymentReceived", (sender, serviceId, requestId, amount, providerAmount, platformFee, timestamp) => {
       console.log(`Payment received: ${ethers.utils.formatEther(amount)} ETN`);
       console.log(`From: ${sender}`);
-      console.log(`For prompt: ${promptId}`);
+      console.log(`For service: ${serviceId}`);
+      console.log(`Request ID: ${requestId}`);
+      console.log(`Provider amount: ${ethers.utils.formatEther(providerAmount)} ETN`);
+      console.log(`Platform fee: ${ethers.utils.formatEther(platformFee)} ETN`);
       console.log(`At timestamp: ${new Date(timestamp.toNumber() * 1000).toISOString()}`);
       
       // Store the payment in our map
-      verifiedPayments.set(promptId, true);
+      verifiedPayments.set(requestId, true);
     });
     
     console.log("Payment listener started successfully");
@@ -104,4 +118,4 @@ export const startPaymentListener = () => {
     console.error("Error starting payment listener:", error);
     console.log("Running in fallback mode - will check for payments on demand");
   }
-}; 
+};

@@ -7,6 +7,11 @@ import { startPaymentListener } from './utils/blockchain';
 // Load environment variables
 dotenv.config();
 
+console.log("Environment variables:");
+console.log("NODE_ENV:", process.env.NODE_ENV);
+console.log("CONTRACT_ADDRESS:", process.env.CONTRACT_ADDRESS);
+console.log("ETN_TESTNET_URL:", process.env.ETN_TESTNET_URL);
+
 const app = express();
 const PORT = process.env.PORT || 4000;
 

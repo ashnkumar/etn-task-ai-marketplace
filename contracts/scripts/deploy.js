@@ -4,15 +4,15 @@ async function main() {
   const environment = process.env.ENVIRONMENT || "testnet";
   const networkName = environment === "mainnet" ? "Electroneum mainnet" : "Electroneum testnet";
   
-  console.log(`Deploying PaymentHandler contract to ${networkName}...`);
+  console.log(`Deploying AIMarketplace contract to ${networkName}...`);
 
-  const PaymentHandler = await hre.ethers.getContractFactory("PaymentHandler");
-  const paymentHandler = await PaymentHandler.deploy();
+  const AIMarketplace = await hre.ethers.getContractFactory("AIMarketplace");
+  const aiMarketplace = await AIMarketplace.deploy();
 
-  await paymentHandler.deployed();
+  await aiMarketplace.deployed();
 
-  console.log(`PaymentHandler deployed to ${networkName} at: ${paymentHandler.address}`);
-  console.log(`Verify with: npx hardhat verify --network electroneum ${paymentHandler.address}`);
+  console.log(`AIMarketplace deployed to ${networkName} at: ${aiMarketplace.address}`);
+  console.log(`Verify with: npx hardhat verify --network electroneum ${aiMarketplace.address}`);
 }
 
 main()
@@ -20,4 +20,4 @@ main()
   .catch((error) => {
     console.error(error);
     process.exit(1);
-  }); 
+  });

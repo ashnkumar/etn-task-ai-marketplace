@@ -1,0 +1,61 @@
+// File: contracts/scripts/register-services.js
+const hre = require("hardhat");
+require("dotenv").config();
+
+async function main() {
+  const AIMarketplace = await hre.ethers.getContractFactory("AIMarketplace");
+  const contract = await AIMarketplace.attach(process.env.CONTRACT_ADDRESS);
+  
+  // Pull provider address from environment variables
+  const PROVIDER_ADDRESS = process.env.PROVIDER_ADDRESS;
+  
+  // Platform fee percentage (e.g., 10%)
+  const PLATFORM_FEE = parseInt(process.env.PLATFORM_FEE || "10");
+  
+  if (!PROVIDER_ADDRESS) {
+    console.error("Error: PROVIDER_ADDRESS not set in environment variables");
+    process.exit(1);
+  }
+  
+  console.log(`Using provider address: ${PROVIDER_ADDRESS}`);
+  console.log(`Platform fee: ${PLATFORM_FEE}%`);
+  
+  // List of service IDs from your existing services
+  const services = [
+    "language-translator",
+    "image-generator",
+    "content-writer",
+    "code-assistant",
+    "data-analyzer"
+  ];
+  
+  console.log("Registering services...");
+  
+  for (const serviceId of services) {
+    console.log(`Registering service: ${serviceId}`);
+    
+    try {
+      // Register the service with the provider address from env variables
+      const tx = await contract.registerService(
+        serviceId,
+        PROVIDER_ADDRESS,
+        PLATFORM_FEE
+      );
+      
+      await tx.wait();
+      console.log(`Service ${serviceId} registered successfully!`);
+    } catch (error) {
+      console.error(`Failed to register service ${serviceId}:`, error.message);
+      // Continue with other services even if one fails
+    }
+  }
+  
+  console.log("Service registration completed!");
+}
+
+main()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });

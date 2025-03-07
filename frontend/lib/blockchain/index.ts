@@ -172,6 +172,7 @@ export const switchToElectroneum = async (): Promise<boolean> => {
 };
 
 // Make payment for a service request
+// In the makePayment function, update to include serviceId:
 export const makePayment = async (requestId: string, amount: string): Promise<boolean> => {
   try {
     const { ethereum } = window as any;
@@ -181,23 +182,21 @@ export const makePayment = async (requestId: string, amount: string): Promise<bo
       return false;
     }
     
-    if (!CONTRACT_ADDRESS) {
-      console.error("Contract address is not defined");
-      return false;
-    }
-    
     const provider = new ethers.providers.Web3Provider(ethereum);
     const signer = provider.getSigner();
     const contract = new ethers.Contract(CONTRACT_ADDRESS, PaymentHandlerABI, signer);
     
-    console.log(`Making payment of ${amount} ETN for request: ${requestId}`);
+    // Extract service ID from the requestId (assuming format like "lan-xxxx" for language-translator)
+    // You may need to modify this based on how you generate requestIds
+    const serviceId = getServiceIdFromRequestId(requestId);
+    console.log(`Making payment of ${amount} ETN for service ${serviceId}, request: ${requestId}`);
     
     // Convert amount to wei (remove " ETN" suffix if present)
     const cleanAmount = amount.replace(' ETN', '');
     const weiAmount = ethers.utils.parseEther(cleanAmount);
     
-    // Make payment
-    const tx = await contract.makePayment(requestId, { value: weiAmount });
+    // Make payment with serviceId and requestId
+    const tx = await contract.makePayment(serviceId, requestId, { value: weiAmount });
     
     // Wait for transaction to be mined
     await tx.wait();
@@ -208,4 +207,22 @@ export const makePayment = async (requestId: string, amount: string): Promise<bo
     console.error("Payment failed:", error);
     return false;
   }
-}; 
+};
+
+// Helper function to extract service ID from request ID
+function getServiceIdFromRequestId(requestId: string): string {
+  // This assumes requestIds are in the format "pre-xxxxxxxx" where "pre" is the prefix
+  // corresponding to the service ID
+  const prefix = requestId.split('-')[0];
+  
+  // Map prefixes to full service IDs - adjust based on your actual service IDs
+  const prefixMap: {[key: string]: string} = {
+    "lan": "language-translator",
+    "img": "image-generator",
+    "con": "content-writer",
+    "cod": "code-assistant",
+    "dat": "data-analyzer"
+  };
+  
+  return prefixMap[prefix] || "unknown-service";
+}

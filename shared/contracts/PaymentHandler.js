@@ -70,7 +70,7 @@ const PaymentHandlerABI = [
   }
 ];
 
-const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || process.env.CONTRACT_ADDRESS;
+const CONTRACT_ADDRESS = undefined;
 
 module.exports = {
   PaymentHandlerABI,

@@ -59,7 +59,7 @@ const serviceController = {
     }
     
     // Generate a unique requestId
-    const requestId = generateRequestId(service.id.substring(0, 3));
+    const requestId = generateRequestId(service.id);
     
     // Calculate estimated cost based on input length and service
     const estimatedCost = calculatePrice(service, input.length);
