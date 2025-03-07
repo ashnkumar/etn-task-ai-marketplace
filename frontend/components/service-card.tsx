@@ -11,6 +11,7 @@ interface ServiceProps {
     basePrice: string;
     type?: string;
     image?: string;
+    tagline?: string;
   };
 }
 
@@ -32,7 +33,7 @@ export default function ServiceCard({ service }: ServiceProps) {
       <CardContent className="p-4">
         <h3 className="text-base font-semibold">{service.name}</h3>
         <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
-          {service.description}
+          {service.tagline || service.description}
         </p>
         <p className="mt-2 text-primary font-medium text-sm">{service.basePrice}+ ETN</p>
       </CardContent>

@@ -15,7 +15,9 @@ const serviceController = {
         name: service.name,
         description: service.description,
         basePrice: service.basePrice,
-        type: service.type
+        type: service.type,
+        template_type: service.template_type,
+        tagline: service.tagline
       }))
     });
   },
@@ -40,6 +42,9 @@ const serviceController = {
         description: service.description,
         basePrice: service.basePrice,
         type: service.type,
+        template_type: service.template_type,
+        tagline: service.tagline,
+        instructions: service.instructions,
         supportedFiles: service.supportedFiles || []
       }
     });

@@ -145,13 +145,17 @@ export const processServiceRequestStream = async (
 
 // Process text-based services (chatbot, translation, content writing)
 async function processTextService(service: Service, input: string, options: any): Promise<any> {
-  console.log(`Processing text service with model: ${service.aiModel || "gpt-3.5-turbo"}`);
+  console.log(`Processing text service with model: ${service.aiModel || "gpt-4o-mini"}`);
+  console.log(`Using system prompt: ${service.system_prompt.substring(0, 50)}...`);
   
   try {
-    // Use OpenAI API
+    // Use OpenAI API with the service's system prompt
     const completion = await openai.chat.completions.create({
-      model: service.aiModel || "gpt-3.5-turbo",
-      messages: [{ role: "user", content: input }],
+      model: service.aiModel || "gpt-4o-mini",
+      messages: [
+        { role: "system", content: service.system_prompt }, // Use the system prompt from service config
+        { role: "user", content: input }
+      ],
       temperature: options.temperature || 0.7,
       max_tokens: options.maxTokens || 1500,
     });
@@ -172,13 +176,17 @@ async function processTextService(service: Service, input: string, options: any)
 
 // Stream text-based services
 async function streamTextService(service: Service, input: string, res: Response, options: any): Promise<void> {
-  console.log(`Streaming text service with model: ${service.aiModel || "gpt-3.5-turbo"}`);
+  console.log(`Streaming text service with model: ${service.aiModel || "gpt-4o-mini"}`);
+  console.log(`Using system prompt: ${service.system_prompt.substring(0, 50)}...`);
   
   try {
-    // Use OpenAI API with streaming
+    // Use OpenAI API with streaming and the service's system prompt
     const stream = await openai.chat.completions.create({
-      model: service.aiModel || "gpt-3.5-turbo",
-      messages: [{ role: "user", content: input }],
+      model: service.aiModel || "gpt-4o-mini",
+      messages: [
+        { role: "system", content: service.system_prompt }, // Use the system prompt from service config
+        { role: "user", content: input }
+      ],
       temperature: options.temperature || 0.7,
       max_tokens: options.maxTokens || 1500,
       stream: true,
@@ -211,12 +219,16 @@ async function streamTextService(service: Service, input: string, res: Response,
 // Process image-based services (image generation)
 async function processImageService(service: Service, input: string, options: any): Promise<any> {
   console.log(`Processing image generation with prompt: "${input.substring(0, 50)}..."`);
+  console.log(`Using system prompt: ${service.system_prompt.substring(0, 50)}...`);
   
   try {
+    // Combine system prompt with user input for better image generation
+    const enhancedPrompt = `${service.system_prompt}\n\nUser request: ${input}`;
+    
     // Use DALL-E API
     const response = await openai.images.generate({
       model: "dall-e-3",
-      prompt: input,
+      prompt: enhancedPrompt,
       n: 1,
       size: options.size || "1024x1024",
     });
@@ -237,15 +249,16 @@ async function processImageService(service: Service, input: string, options: any
 // Process code-based services
 async function processCodeService(service: Service, input: string, options: any): Promise<any> {
   console.log(`Processing code service with prompt: "${input.substring(0, 50)}..."`);
+  console.log(`Using system prompt: ${service.system_prompt.substring(0, 50)}...`);
   
   try {
-    // Use OpenAI with code-specific prompt
-    const codePrompt = `You are a coding assistant. Provide working, well-documented code in response to this request: ${input}`;
-    
+    // Use OpenAI with code-specific prompt and the service's system prompt
     const completion = await openai.chat.completions.create({
-      model: service.aiModel || "gpt-3.5-turbo",
-      messages: [{ role: "system", content: "You are a coding assistant that provides clean, well-documented code. Format your response using markdown." },
-                { role: "user", content: input }],
+      model: service.aiModel || "gpt-4o-mini",
+      messages: [
+        { role: "system", content: service.system_prompt }, // Use the system prompt from service config
+        { role: "user", content: input }
+      ],
       temperature: options.temperature || 0.3, // Lower temperature for code
       max_tokens: options.maxTokens || 1500,
     });
@@ -266,15 +279,16 @@ async function processCodeService(service: Service, input: string, options: any)
 // Stream code-based services
 async function streamCodeService(service: Service, input: string, res: Response, options: any): Promise<void> {
   console.log(`Streaming code service with prompt: "${input.substring(0, 50)}..."`);
+  console.log(`Using system prompt: ${service.system_prompt.substring(0, 50)}...`);
   
   try {
-    // Use OpenAI with code-specific prompt and streaming
-    const codePrompt = `You are a coding assistant. Provide working, well-documented code in response to this request: ${input}`;
-    
+    // Use OpenAI with code-specific prompt and streaming, with the service's system prompt
     const stream = await openai.chat.completions.create({
-      model: service.aiModel || "gpt-3.5-turbo",
-      messages: [{ role: "system", content: "You are a coding assistant that provides clean, well-documented code. Format your response using markdown." },
-                { role: "user", content: input }],
+      model: service.aiModel || "gpt-4o-mini",
+      messages: [
+        { role: "system", content: service.system_prompt }, // Use the system prompt from service config
+        { role: "user", content: input }
+      ],
       temperature: options.temperature || 0.3,
       max_tokens: options.maxTokens || 1500,
       stream: true,
@@ -307,15 +321,16 @@ async function streamCodeService(service: Service, input: string, res: Response,
 // Process data analysis services
 async function processDataService(service: Service, input: string, options: any): Promise<any> {
   console.log(`Processing data analysis with input: "${input.substring(0, 50)}..."`);
+  console.log(`Using system prompt: ${service.system_prompt.substring(0, 50)}...`);
   
   try {
-    // For now, handle data analysis using text models
-    const dataPrompt = `You are a data analyst. Analyze the following data and provide detailed insights: ${input}`;
-    
+    // For now, handle data analysis using text models with the service's system prompt
     const completion = await openai.chat.completions.create({
-      model: service.aiModel || "gpt-3.5-turbo",
-      messages: [{ role: "system", content: "You are a data analyst who provides clear, insightful analysis with markdown formatting." },
-                { role: "user", content: input }],
+      model: service.aiModel || "gpt-4o-mini",
+      messages: [
+        { role: "system", content: service.system_prompt }, // Use the system prompt from service config
+        { role: "user", content: input }
+      ],
       temperature: options.temperature || 0.5,
       max_tokens: options.maxTokens || 1500,
     });
@@ -336,15 +351,16 @@ async function processDataService(service: Service, input: string, options: any)
 // Stream data analysis services
 async function streamDataService(service: Service, input: string, res: Response, options: any): Promise<void> {
   console.log(`Streaming data analysis with input: "${input.substring(0, 50)}..."`);
+  console.log(`Using system prompt: ${service.system_prompt.substring(0, 50)}...`);
   
   try {
-    // For data analysis using text models with streaming
-    const dataPrompt = `You are a data analyst. Analyze the following data and provide detailed insights: ${input}`;
-    
+    // For data analysis using text models with streaming, with the service's system prompt
     const stream = await openai.chat.completions.create({
-      model: service.aiModel || "gpt-3.5-turbo",
-      messages: [{ role: "system", content: "You are a data analyst who provides clear, insightful analysis with markdown formatting." },
-                { role: "user", content: input }],
+      model: service.aiModel || "gpt-4o-mini",
+      messages: [
+        { role: "system", content: service.system_prompt }, // Use the system prompt from service config
+        { role: "user", content: input }
+      ],
       temperature: options.temperature || 0.5,
       max_tokens: options.maxTokens || 1500,
       stream: true,

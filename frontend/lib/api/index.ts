@@ -10,6 +10,9 @@ export interface Service {
   description: string;
   basePrice: string;
   type: string;
+  template_type: string;
+  tagline: string;
+  instructions: string;
   supportedFiles?: string[];
 }
 

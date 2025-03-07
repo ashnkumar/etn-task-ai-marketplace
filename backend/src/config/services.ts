@@ -1,5 +1,6 @@
 // Service types
 export type ServiceType = 'text' | 'image' | 'code' | 'data';
+export type TemplateType = 'text_only' | 'text_and_file' | 'image';
 
 // Service interface
 export interface Service {
@@ -9,75 +10,76 @@ export interface Service {
   basePrice: string; // ETN amount as string, e.g., "0.05"
   priceModel: 'fixed' | 'variable';
   type: ServiceType;
+  template_type: TemplateType;
+  tagline: string;
+  instructions: string;
+  system_prompt: string;
+  demo_input?: string;
   mockResponses?: Record<string, string>; // For development/testing
   aiModel?: string; // e.g., "gpt-4o-mini" for OpenAI
   supportedFiles?: string[]; // File extensions supported by this service
   maxInputLength?: number; // Maximum input length in characters
 }
 
-// Available services
-export const services: Service[] = [
-  {
-    id: "language-translator",
-    name: "Language Translator",
-    description: "Translate text between over 100 languages with high accuracy.",
-    basePrice: "0.05",
-    priceModel: "variable",
-    type: "text",
-    aiModel: "gpt-4o-mini",
-    mockResponses: {
-      "Translate to French: Hello, how are you?": "Bonjour, comment allez-vous?",
-      "Translate to Spanish: I love artificial intelligence": "Me encanta la inteligencia artificial",
+// Load service data from JSON file
+import fs from 'fs';
+import path from 'path';
+
+// Define path to JSON file
+const servicesFilePath = path.join(__dirname, '../../../shared/data/marketplace-services.json');
+
+// Load services from JSON file
+let servicesData: Service[] = [];
+try {
+  const jsonData = fs.readFileSync(servicesFilePath, 'utf8');
+  const rawServices = JSON.parse(jsonData);
+  
+  // Transform the raw data to match our Service interface
+  servicesData = rawServices.map((service: any) => ({
+    ...service,
+    priceModel: 'variable', // Default to variable pricing
+    mockResponses: service.demo_input ? { [service.demo_input]: '' } : {} // Create empty mock responses
+  }));
+  
+  console.log(`Loaded ${servicesData.length} services from JSON file`);
+} catch (error) {
+  console.error('Error loading services from JSON file:', error);
+  // Provide fallback services in case the file cannot be loaded
+  servicesData = [
+    {
+      id: "language-translator",
+      name: "Language Translator",
+      description: "Translate text between over 100 languages with high accuracy.",
+      basePrice: "0.05",
+      priceModel: "variable",
+      type: "text",
+      template_type: "text_only",
+      tagline: "Translate text between over 100 languages with high accuracy.",
+      instructions: "Enter text to translate and specify the target language.",
+      system_prompt: "You are a professional translator. Translate the text provided by the user to the requested language. Maintain the original meaning and tone as much as possible.",
+      aiModel: "gpt-4o-mini",
+      mockResponses: {
+        "Translate to French: Hello, how are you?": "Bonjour, comment allez-vous?"
+      }
+    },
+    {
+      id: "image-generator",
+      name: "AI Image Generator",
+      description: "Create stunning images from text descriptions.",
+      basePrice: "0.20",
+      priceModel: "fixed",
+      type: "image",
+      template_type: "image",
+      tagline: "Create stunning images from text descriptions.",
+      instructions: "Describe the image you want to generate in detail.",
+      system_prompt: "You are an image generator AI. Create a detailed image based on the user's text description.",
+      aiModel: "dall-e-3"
     }
-  },
-  {
-    id: "image-generator",
-    name: "AI Image Generator",
-    description: "Create stunning images from text descriptions.",
-    basePrice: "0.20",
-    priceModel: "fixed",
-    type: "image",
-    aiModel: "dall-e-3"
-  },
-  {
-    id: "content-writer",
-    name: "Content Writer",
-    description: "Generate high-quality articles, blog posts, and marketing copy.",
-    basePrice: "0.15",
-    priceModel: "variable",
-    type: "text",
-    aiModel: "gpt-4o-mini",
-    maxInputLength: 1000,
-    mockResponses: {
-      "Write a short blog post about AI and blockchain": "# The Convergence of AI and Blockchain\\n\\nIn recent years, two technologies have emerged as revolutionary forces: artificial intelligence (AI) and blockchain. While they developed independently, their convergence is creating powerful new possibilities.\\n\\nBlockchain provides the decentralized, transparent infrastructure that can address many concerns about AI, including data privacy and algorithm transparency. Meanwhile, AI can enhance blockchain networks with advanced analytics and automated decision-making.\\n\\nProjects combining these technologies are already emerging in various industries:\\n\\n- **Finance**: AI-powered trading on decentralized exchanges\\n- **Healthcare**: Secure, private patient data analysis\\n- **Supply Chain**: Intelligent tracking and verification of goods\\n\\nAs these technologies mature together, we'll see unprecedented applications that leverage the security of blockchain with the intelligence of AI.",
-    }
-  },
-  {
-    id: "code-assistant",
-    name: "Code Assistant",
-    description: "Get help with programming tasks, debugging, and code optimization.",
-    basePrice: "0.10",
-    priceModel: "variable",
-    type: "code",
-    aiModel: "gpt-4o-mini",
-    supportedFiles: [".js", ".ts", ".py", ".java", ".c", ".cpp"],
-    mockResponses: {
-      "Write a JavaScript function to sort an array of objects by a property": "```javascript\\nfunction sortArrayByProperty(array, property) {\\n  return array.sort((a, b) => {\\n    if (a[property] < b[property]) return -1;\\n    if (a[property] > b[property]) return 1;\\n    return 0;\\n  });\\n}\\n\\n// Example usage:\\n// const people = [\\n//   { name: 'John', age: 30 },\\n//   { name: 'Alice', age: 25 },\\n//   { name: 'Bob', age: 35 }\\n// ];\\n// const sortedByAge = sortArrayByProperty(people, 'age');\\n// console.log(sortedByAge);\\n```",
-    }
-  },
-  {
-    id: "data-analyzer",
-    name: "Data Analyzer",
-    description: "Extract insights from your data with ML-powered analysis.",
-    basePrice: "0.25",
-    priceModel: "variable",
-    type: "data",
-    supportedFiles: [".csv", ".json", ".xlsx"],
-    mockResponses: {
-      "Analyze this data and provide insights": "## Data Analysis Results\\n\\n### Summary Statistics\\n- **Records**: 1,245\\n- **Time Period**: Jan 2023 - Dec 2023\\n- **Key Metrics**: Revenue increased by 15% year-over-year\\n\\n### Key Findings\\n1. Customer retention improved in Q4 2023\\n2. Product A shows highest growth potential\\n3. Markets in Europe outperforming North America\\n\\n### Recommendations\\n- Increase marketing budget for Product A\\n- Investigate decline in North American market\\n- Focus retention efforts on high-value customer segment",
-    }
-  }
-];
+  ];
+}
+
+// Export loaded services
+export const services: Service[] = servicesData;
 
 // Function to get a service by ID
 export function getServiceById(id: string): Service | undefined {

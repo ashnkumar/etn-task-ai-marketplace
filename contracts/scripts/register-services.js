@@ -22,11 +22,14 @@ async function main() {
   
   // List of service IDs from your existing services
   const services = [
-    "language-translator",
-    "image-generator",
-    "content-writer",
-    "code-assistant",
-    "data-analyzer"
+    "smart-contract-auditor",
+    "defi-risk-analyzer",
+    "tokenomics-architect",
+    "crypto-meme-maker",
+    "code-summarizer",
+    "pitch-polisher",
+    "dao-governance-wizard",
+    "nft-artwork-generator"
   ];
   
   console.log("Registering services...");

@@ -285,16 +285,17 @@ export default function ServicePage() {
         <div className="w-full md:w-1/3">
           <div>
             <h1 className="text-2xl font-bold">{service.name}</h1>
-            <p className="text-sm text-primary mt-1">ETN Task AI Service</p>
+            <p className="text-sm text-primary mt-1">{service.tagline || "ETN Task AI Service"}</p>
             <p className="mt-4 text-sm text-muted-foreground">{service.description}</p>
           </div>
 
           <div className="border border-border rounded-lg p-5 bg-card/50">
             <h2 className="text-sm font-medium mb-3">Instructions</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Enter your input below and click "Process" to start. 
-              You'll be asked to pay {service.basePrice} ETN (or more for longer inputs) 
-              using your Electroneum wallet.
+              {service.instructions || "Enter your input below and click \"Process\" to start. You'll be asked to pay ETN using your Electroneum wallet."}
+            </p>
+            <p className="text-xs text-muted-foreground mt-2">
+              Cost: Starting at {service.basePrice} ETN (may increase for longer inputs)
             </p>
           </div>
 
@@ -322,7 +323,7 @@ export default function ServicePage() {
                     />
                   </div>
 
-                  {service.supportedFiles && service.supportedFiles.length > 0 && (
+                  {service.template_type === 'text_and_file' && (
                     <div className="space-y-2">
                       <Label htmlFor="file">Upload file (optional)</Label>
                       <Input 
@@ -333,7 +334,7 @@ export default function ServicePage() {
                         onChange={handleFileUpload}
                       />
                       <p className="text-xs text-muted-foreground">
-                        Supported formats: {service.supportedFiles.join(', ')}
+                        Supported formats: {service.supportedFiles ? service.supportedFiles.join(', ') : 'Common code and document formats'}
                       </p>
                     </div>
                   )}

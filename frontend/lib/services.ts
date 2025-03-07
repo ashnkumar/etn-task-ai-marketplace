@@ -2,75 +2,111 @@ import axios from 'axios';
 
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
-// Types
+// Service types
+export type ServiceType = 'text' | 'image' | 'code' | 'data';
+export type TemplateType = 'text_only' | 'text_and_file' | 'image';
+
+// Service interface
 export interface Service {
   id: string;
   name: string;
   description: string;
   basePrice: string;
-  type: string;
-  supportedFiles?: string[];
+  type: ServiceType;
+  template_type: TemplateType;
+  tagline: string;
+  instructions: string;
+  image?: string;
 }
 
-// Default services array for static rendering
+// Fallback services in case the API is unavailable
 export const services: Service[] = [
   {
-    id: "chatbot",
-    name: "AI Chatbot",
-    description: "Interactive AI assistant that can answer questions and provide information.",
-    basePrice: "5",
-    type: "text"
+    id: "smart-contract-auditor",
+    name: "Smart Contract Auditor",
+    description: "Uncover potential issues in your Solidity contracts.",
+    basePrice: "0.20",
+    type: "code",
+    template_type: "text_and_file",
+    tagline: "Uncover potential issues in your Solidity contracts.",
+    instructions: "Upload your Solidity file (or snippet) and provide any relevant context. The AI will analyze your code for common vulnerabilities and best-practice compliance, returning a detailed audit report in Markdown."
   },
   {
-    id: "content-writer",
-    name: "Content Writer",
-    description: "Creates high-quality articles, blog posts, and marketing copy.",
-    basePrice: "10",
-    type: "text"
+    id: "defi-risk-analyzer",
+    name: "DeFi Risk Analyzer",
+    description: "Assess weaknesses in your DeFi protocol designs.",
+    basePrice: "0.15",
+    type: "text",
+    template_type: "text_only",
+    tagline: "Assess weaknesses in your DeFi protocol designs.",
+    instructions: "Describe your DeFi protocol's structure, mechanics, and goals. The AI will highlight potential risk factors (economic exploits, liquidity issues, governance attacks, etc.) and suggest mitigations, returning a detailed analysis in Markdown."
   },
   {
-    id: "code-assistant",
-    name: "Code Assistant",
-    description: "Helps with programming tasks, debugging, and code generation.",
-    basePrice: "15",
-    type: "code"
+    id: "tokenomics-architect",
+    name: "Tokenomics Architect",
+    description: "Shape robust token models for sustainable growth.",
+    basePrice: "0.15",
+    type: "text",
+    template_type: "text_only",
+    tagline: "Shape robust token models for sustainable growth.",
+    instructions: "Enter your token model's details—distribution, inflation schedule, utility mechanics, etc.—and any known constraints. The AI will refine your tokenomics, offering suggestions on supply schedules, incentive alignment, and governance structures in Markdown."
   },
   {
-    id: "image-generator",
-    name: "Image Generator",
-    description: "Creates custom images based on your descriptions.",
-    basePrice: "20",
-    type: "image"
+    id: "crypto-meme-maker",
+    name: "Crypto Meme Maker",
+    description: "Generate fun, on-trend crypto memes from text prompts.",
+    basePrice: "0.20",
+    type: "image",
+    template_type: "image",
+    tagline: "Generate fun, on-trend crypto memes from text prompts.",
+    instructions: "Enter your meme idea (e.g., 'Bullish dog riding a rocket, comedic style'). The AI will create a humorous on-trend image featuring your concept."
   },
   {
-    id: "data-analyzer",
-    name: "Data Analyzer",
-    description: "Analyzes data and provides insights and visualizations.",
-    basePrice: "25",
-    type: "data"
+    id: "code-summarizer",
+    name: "Code Summarizer & Refactor",
+    description: "Upload code to receive a succinct summary and improvement tips.",
+    basePrice: "0.10",
+    type: "code",
+    template_type: "text_and_file",
+    tagline: "Upload code to receive a succinct summary and improvement tips.",
+    instructions: "Provide a snippet or file of code (any language) along with optional notes. The AI will produce a concise explanation of what the code does, highlight potential bugs, and suggest refactoring improvements in Markdown."
   },
   {
-    id: "translator",
-    name: "Language Translator",
-    description: "Translates text between multiple languages accurately.",
-    basePrice: "8",
-    type: "text"
+    id: "pitch-polisher",
+    name: "Pitch Polisher",
+    description: "Elevate your project pitch or whitepaper with professional polish.",
+    basePrice: "0.10",
+    type: "text",
+    template_type: "text_only",
+    tagline: "Elevate your project pitch or whitepaper with professional polish.",
+    instructions: "Paste your raw pitch, whitepaper text, or overall project description. The AI will refine the language, style, and structure, returning a professional, compelling version in Markdown with headings and bullet points where relevant."
   },
   {
-    id: "summarizer",
-    name: "Text Summarizer",
-    description: "Creates concise summaries of longer documents and articles.",
-    basePrice: "7",
-    type: "text"
+    id: "dao-governance-wizard",
+    name: "DAO Governance Wizard",
+    description: "Design effective governance frameworks for decentralized organizations.",
+    basePrice: "0.15",
+    type: "text",
+    template_type: "text_only",
+    tagline: "Design effective governance frameworks for decentralized organizations.",
+    instructions: "Describe your DAO's purpose, membership structure, and voting mechanisms. The AI will propose enhancements for fair, efficient governance in Markdown format."
   },
   {
-    id: "seo-optimizer",
-    name: "SEO Optimizer",
-    description: "Suggests improvements to make your content rank higher in search results.",
-    basePrice: "12",
-    type: "text"
+    id: "nft-artwork-generator",
+    name: "NFT Artwork Generator",
+    description: "Create distinctive NFT visuals from concept prompts.",
+    basePrice: "0.25",
+    type: "image",
+    template_type: "image",
+    tagline: "Create distinctive NFT visuals from concept prompts.",
+    instructions: "Enter a creative concept (e.g. 'Neon cyberpunk lion with glitch effects'). The AI will generate a unique artwork suiting NFT minting style."
   }
 ];
+
+// Function to get a service by ID
+export function getServiceById(id: string): Service | undefined {
+  return services.find(service => service.id === id);
+}
 
 export interface ServicesResponse {
   services: Service[];
