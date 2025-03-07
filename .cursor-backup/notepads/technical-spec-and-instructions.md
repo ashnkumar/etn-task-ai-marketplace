@@ -755,7 +755,7 @@ export interface Service {
   priceModel: 'fixed' | 'variable';
   type: ServiceType;
   mockResponses?: Record<string, string>; // For development/testing
-  aiModel?: string; // e.g., "gpt-3.5-turbo" for OpenAI
+  aiModel?: string; // e.g., "gpt-4o-mini" for OpenAI
   supportedFiles?: string[]; // File extensions supported by this service
   maxInputLength?: number; // Maximum input length in characters
 }
@@ -769,7 +769,7 @@ export const services: Service[] = [
     basePrice: "0.05",
     priceModel: "variable",
     type: "text",
-    aiModel: "gpt-3.5-turbo",
+    aiModel: "gpt-4o-mini",
     mockResponses: {
       "Translate to French: Hello, how are you?": "Bonjour, comment allez-vous?",
       "Translate to Spanish: I love artificial intelligence": "Me encanta la inteligencia artificial",
@@ -791,7 +791,7 @@ export const services: Service[] = [
     basePrice: "0.15",
     priceModel: "variable",
     type: "text",
-    aiModel: "gpt-4",
+    aiModel: "gpt-4o-mini",
     maxInputLength: 1000,
     mockResponses: {
       "Write a short blog post about AI and blockchain": "# The Convergence of AI and Blockchain\\n\\nIn recent years, two technologies have emerged as revolutionary forces: artificial intelligence (AI) and blockchain. While they developed independently, their convergence is creating powerful new possibilities.\\n\\nBlockchain provides the decentralized, transparent infrastructure that can address many concerns about AI, including data privacy and algorithm transparency. Meanwhile, AI can enhance blockchain networks with advanced analytics and automated decision-making.\\n\\nProjects combining these technologies are already emerging in various industries:\\n\\n- **Finance**: AI-powered trading on decentralized exchanges\\n- **Healthcare**: Secure, private patient data analysis\\n- **Supply Chain**: Intelligent tracking and verification of goods\\n\\nAs these technologies mature together, we'll see unprecedented applications that leverage the security of blockchain with the intelligence of AI.",
@@ -804,7 +804,7 @@ export const services: Service[] = [
     basePrice: "0.10",
     priceModel: "variable",
     type: "code",
-    aiModel: "gpt-4",
+    aiModel: "gpt-4o-mini",
     supportedFiles: [".js", ".ts", ".py", ".java", ".c", ".cpp"],
     mockResponses: {
       "Write a JavaScript function to sort an array of objects by a property": "```javascript\\nfunction sortArrayByProperty(array, property) {\\n  return array.sort((a, b) => {\\n    if (a[property] < b[property]) return -1;\\n    if (a[property] > b[property]) return 1;\\n    return 0;\\n  });\\n}\\n\\n// Example usage:\\n// const people = [\\n//   { name: 'John', age: 30 },\\n//   { name: 'Alice', age: 25 },\\n//   { name: 'Bob', age: 35 }\\n// ];\\n// const sortedByAge = sortArrayByProperty(people, 'age');\\n// console.log(sortedByAge);\\n```",
@@ -1050,7 +1050,7 @@ export const processServiceRequest = async (
 async function processTextService(service: Service, input: string, options: any): Promise<any> {
   // Use OpenAI API
   const completion = await openai.createChatCompletion({
-    model: service.aiModel || "gpt-3.5-turbo",
+    model: service.aiModel || "gpt-4o-mini",
     messages: [{ role: "user", content: input }],
     temperature: options.temperature || 0.7,
     max_tokens: options.maxTokens || 500,
@@ -1083,7 +1083,7 @@ async function processCodeService(service: Service, input: string, options: any)
   const codePrompt = \`Write code in response to this request. Format your response with proper syntax highlighting with markdown code blocks: \${input}\`;
   
   const completion = await openai.createChatCompletion({
-    model: service.aiModel || "gpt-3.5-turbo",
+    model: service.aiModel || "gpt-4o-mini",
     messages: [{ role: "user", content: codePrompt }],
     temperature: options.temperature || 0.3, // Lower temperature for code
     max_tokens: options.maxTokens || 1000,
@@ -1102,7 +1102,7 @@ async function processDataService(service: Service, input: string, options: any)
   const dataPrompt = \`Analyze the following data and provide insights: \${input}\`;
   
   const completion = await openai.createChatCompletion({
-    model: service.aiModel || "gpt-3.5-turbo",
+    model: service.aiModel || "gpt-4o-mini",
     messages: [{ role: "user", content: dataPrompt }],
     temperature: options.temperature || 0.5,
     max_tokens: options.maxTokens || 1000,

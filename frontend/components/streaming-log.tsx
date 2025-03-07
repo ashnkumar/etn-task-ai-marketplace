@@ -41,23 +41,43 @@ export default function StreamingLog({ isProcessing = false, output = null }: St
     };
   }, [isProcessing]);
 
+  // Add this log for debugging
+  useEffect(() => {
+    if (output) {
+      console.log("Raw output received:", output);
+      console.log("First 100 chars:", output.substring(0, 100));
+    }
+  }, [output]);
+
   // Format output with markdown-like syntax
   const formatOutput = (text: string) => {
-    return text
+    console.log("Formatting output, length:", text.length);
+    
+    // First, replace any double backslashes with a temporary placeholder
+    let formatted = text.replace(/\\\\/g, '___DOUBLE_BACKSLASH___');
+    
+    // Apply formatting rules
+    formatted = formatted
       // Code blocks
-      .replace(/```([\\s\\S]*?)```/g, '<pre class="bg-muted p-3 rounded-md my-2 overflow-x-auto text-xs font-mono">$1</pre>')
+      .replace(/```([\s\S]*?)```/g, '<pre class="bg-muted p-3 rounded-md my-2 overflow-x-auto text-xs font-mono">$1</pre>')
       // Headers
       .replace(/^# (.*$)/gm, '<h1 class="text-xl font-bold mt-4 mb-2">$1</h1>')
-      .replace(/^## (.*$)/gm, '<h2 class="text-lg font-bold mt-3 mb-2">$2</h2>')
+      .replace(/^## (.*$)/gm, '<h2 class="text-lg font-bold mt-3 mb-2">$1</h2>')
       .replace(/^### (.*$)/gm, '<h3 class="text-md font-bold mt-3 mb-1">$1</h3>')
       // Bold
-      .replace(/\\*\\*(.*?)\\*\\*/g, '<strong>$1</strong>')
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       // Italic
-      .replace(/\\*(.*?)\\*/g, '<em>$1</em>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
       // Lists
       .replace(/^- (.*$)/gm, '<li class="ml-4">• $1</li>')
       // Line breaks
-      .replace(/\\n/g, '<br/>');
+      .replace(/\n/g, '<br/>');
+    
+    // Restore double backslashes
+    formatted = formatted.replace(/___DOUBLE_BACKSLASH___/g, '\\');
+    
+    console.log("After formatting, first 100 chars:", formatted.substring(0, 100));
+    return formatted;
   };
 
   return (

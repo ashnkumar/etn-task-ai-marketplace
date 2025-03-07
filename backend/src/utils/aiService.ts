@@ -23,8 +23,10 @@ export const processServiceRequest = async (
   }
   
   // Check for mock responses in development mode
+  console.log(`NODE_ENV: ${process.env.NODE_ENV}, Has mock responses: ${!!service.mockResponses}`);
   if (process.env.NODE_ENV === 'development' && service.mockResponses && service.mockResponses[input]) {
     console.log(`Using mock response for service ${serviceId}`);
+    console.log(`Mock response first 100 chars: "${service.mockResponses[input].substring(0, 100)}..."`);
     return { 
       result: service.mockResponses[input],
       serviceType: service.type
@@ -63,18 +65,30 @@ export const processServiceRequest = async (
 
 // Process text-based services (chatbot, translation, content writing)
 async function processTextService(service: Service, input: string, options: any): Promise<any> {
-  // Use OpenAI API
-  const completion = await openai.chat.completions.create({
-    model: service.aiModel || "gpt-3.5-turbo",
-    messages: [{ role: "user", content: input }],
-    temperature: options.temperature || 0.7,
-    max_tokens: options.maxTokens || 500,
-  });
+  console.log(`Processing text service: ${service.id}, input: "${input.substring(0, 50)}..."`);
   
-  return { 
-    result: completion.choices[0].message?.content || "No response generated",
-    serviceType: 'text'
-  };
+  try {
+    // Use OpenAI API
+    console.log(`Calling OpenAI with model: ${service.aiModel || "gpt-4o-mini"}`);
+    const completion = await openai.chat.completions.create({
+      model: service.aiModel || "gpt-4o-mini",
+      messages: [{ role: "user", content: input }],
+      temperature: options.temperature || 0.7,
+      max_tokens: options.maxTokens || 500,
+    });
+    
+    const result = completion.choices[0].message?.content || "No response generated";
+    console.log(`OpenAI response received, length: ${result.length} chars`);
+    console.log(`First 100 chars of response: "${result.substring(0, 100)}..."`);
+    
+    return { 
+      result,
+      serviceType: 'text'
+    };
+  } catch (error) {
+    console.error("OpenAI API error:", error);
+    throw error;
+  }
 }
 
 // Process image-based services (image generation)
@@ -98,7 +112,7 @@ async function processCodeService(service: Service, input: string, options: any)
   const codePrompt = `Write code in response to this request. Format your response with proper syntax highlighting with markdown code blocks: ${input}`;
   
   const completion = await openai.chat.completions.create({
-    model: service.aiModel || "gpt-3.5-turbo",
+    model: service.aiModel || "gpt-4o-mini",
     messages: [{ role: "user", content: codePrompt }],
     temperature: options.temperature || 0.3, // Lower temperature for code
     max_tokens: options.maxTokens || 1000,
@@ -117,7 +131,7 @@ async function processDataService(service: Service, input: string, options: any)
   const dataPrompt = `Analyze the following data and provide insights: ${input}`;
   
   const completion = await openai.chat.completions.create({
-    model: service.aiModel || "gpt-3.5-turbo",
+    model: service.aiModel || "gpt-4o-mini",
     messages: [{ role: "user", content: dataPrompt }],
     temperature: options.temperature || 0.5,
     max_tokens: options.maxTokens || 1000,

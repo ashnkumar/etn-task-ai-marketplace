@@ -119,7 +119,7 @@ const aiController = {
         console.log(`Calling OpenAI API with streaming for prompt: "${prompt}"`);
         
         const stream = await openai.chat.completions.create({
-          model: "gpt-3.5-turbo",
+          model: "gpt-4o-mini",
           messages: [{ role: "user", content: prompt }],
           stream: true,
         });
