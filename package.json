@@ -1,0 +1,31 @@
+{
+  "name": "etn-task-ai",
+  "version": "1.0.0",
+  "description": "AI Services Marketplace powered by Electroneum micropayments",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "frontend": "cd frontend && npm run dev",
+    "backend": "cd backend && npm run dev",
+    "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "install-all": "npm install && cd frontend && npm install && cd ../backend && npm install && cd ../contracts && npm install"
+  },
+  "keywords": [
+    "electroneum",
+    "blockchain",
+    "ai",
+    "marketplace"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "@types/prismjs": "^1.26.5",
+    "@types/react-syntax-highlighter": "^15.5.13",
+    "prismjs": "^1.29.0",
+    "react-syntax-highlighter": "^15.6.1",
+    "sqlite3": "^5.1.7"
+  }
+}

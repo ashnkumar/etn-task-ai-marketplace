@@ -1,0 +1,40 @@
+{
+  "_format": "hh-sol-cache-2",
+  "files": {
+    "/Users/ashwinkumar/Downloads/etn-task-ai/contracts/contracts/AIMarketplace.sol": {
+      "lastModificationDate": 1741358058323,
+      "contentHash": "16557ed204e2c72ebf08dc2e39160d66",
+      "sourceName": "contracts/AIMarketplace.sol",
+      "solcConfig": {
+        "version": "0.8.17",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "AIMarketplace"
+      ]
+    }
+  }
+}
