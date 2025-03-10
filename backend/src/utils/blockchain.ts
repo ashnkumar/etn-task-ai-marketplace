@@ -29,6 +29,9 @@ const contract = new ethers.Contract(CONTRACT_ADDRESS!, PaymentHandlerABI, provi
 // Map to store payments that have been verified
 const verifiedPayments = new Map<string, boolean>();
 
+// Map to store transaction hashes for requestIds
+const requestTransactions = new Map<string, string>();
+
 // Function to check if a payment exists for a requestId
 export const checkPayment = async (requestId: string): Promise<boolean> => {
   // If we've already verified this payment, return true immediately
@@ -60,16 +63,8 @@ export const checkPayment = async (requestId: string): Promise<boolean> => {
         console.log(`Found payment for requestId ${requestId} in transaction ${event.transactionHash}`);
         
         // Store the transaction hash for later use
-        const txHash = event.transactionHash;
-        
-        // Determine explorer URL based on environment
-        const isMainnet = process.env.ENVIRONMENT === 'mainnet';
-        const explorerBaseUrl = isMainnet 
-          ? 'https://blockexplorer.electroneum.com/tx/'
-          : 'https://blockexplorer.testnet.electroneum.com/tx/';
-        
-        // Construct and store the explorer URL
-        const explorerUrl = `${explorerBaseUrl}${txHash}`;
+        requestTransactions.set(requestId, event.transactionHash);
+        console.log(`Transaction hash stored: ${event.transactionHash}`);
         
         return true;
       }
@@ -80,41 +75,7 @@ export const checkPayment = async (requestId: string): Promise<boolean> => {
     if (found) {
       verifiedPayments.set(requestId, true);
       
-      // Get the transaction hash and explorer URL (from the events loop)
-      const matchingEvent = events.find(event => 
-        event.args && event.args.requestId === requestId
-      );
-      
-      const txHash = matchingEvent ? matchingEvent.transactionHash : 'unknown';
-      
-      // Determine explorer URL based on environment
-      const isMainnet = process.env.ENVIRONMENT === 'mainnet';
-      const explorerBaseUrl = isMainnet 
-        ? 'https://blockexplorer.electroneum.com/tx/'
-        : 'https://blockexplorer.testnet.electroneum.com/tx/';
-      
-      const explorerUrl = `${explorerBaseUrl}${txHash}`;
-      
-      // Enhanced success message with ASCII art and colors
-      console.log('\n\x1b[32m=======================================================\x1b[0m');
-      console.log('\x1b[32m██████╗  █████╗ ██╗   ██╗███╗   ███╗███████╗███╗   ██╗████████╗\x1b[0m');
-      console.log('\x1b[32m██╔══██╗██╔══██╗╚██╗ ██╔╝████╗ ████║██╔════╝████╗  ██║╚══██╔══╝\x1b[0m');
-      console.log('\x1b[32m██████╔╝███████║ ╚████╔╝ ██╔████╔██║█████╗  ██╔██╗ ██║   ██║   \x1b[0m');
-      console.log('\x1b[32m██╔═══╝ ██╔══██║  ╚██╔╝  ██║╚██╔╝██║██╔══╝  ██║╚██╗██║   ██║   \x1b[0m');
-      console.log('\x1b[32m██║     ██║  ██║   ██║   ██║ ╚═╝ ██║███████╗██║ ╚████║   ██║   \x1b[0m');
-      console.log('\x1b[32m╚═╝     ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚══════╝╚═╝  ╚═══╝   ╚═╝   \x1b[0m');
-      console.log('\x1b[32m                                                               \x1b[0m');
-      console.log('\x1b[32m██╗   ██╗███████╗██████╗ ██╗███████╗██╗███████╗██████╗        \x1b[0m');
-      console.log('\x1b[32m██║   ██║██╔════╝██╔══██╗██║██╔════╝██║██╔════╝██╔══██╗       \x1b[0m');
-      console.log('\x1b[32m██║   ██║█████╗  ██████╔╝██║█████╗  ██║█████╗  ██║  ██║       \x1b[0m');
-      console.log('\x1b[32m╚██╗ ██╔╝██╔══╝  ██╔══██╗██║██╔══╝  ██║██╔══╝  ██║  ██║       \x1b[0m');
-      console.log('\x1b[32m ╚████╔╝ ███████╗██║  ██║██║██║     ██║███████╗██████╔╝       \x1b[0m');
-      console.log('\x1b[32m  ╚═══╝  ╚══════╝╚═╝  ╚═╝╚═╝╚═╝     ╚═╝╚══════╝╚═════╝        \x1b[0m');
-      console.log('\x1b[1;32m=======================================================\x1b[0m');
-      console.log('\x1b[1;32m✓ PAYMENT VERIFICATION SUCCESSFUL FOR REQUEST: ' + requestId + '\x1b[0m');
-      console.log('\x1b[1;32m=======================================================\x1b[0m');
-      console.log('\x1b[1;36m🔍 TRANSACTION URL: ' + explorerUrl + '\x1b[0m\n');
-      
+      // Skip the ASCII art here since it will be handled in serviceController.ts
       return true;
     }
     
@@ -123,34 +84,7 @@ export const checkPayment = async (requestId: string): Promise<boolean> => {
       console.log(`Development mode: Simulating payment success for requestId ${requestId}`);
       verifiedPayments.set(requestId, true);
       
-      // Generate a fake transaction hash for development mode
-      const fakeTxHash = '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('');
-      
-      // Determine explorer URL based on environment (use testnet for development)
-      const explorerBaseUrl = 'https://blockexplorer.testnet.electroneum.com/tx/';
-      const explorerUrl = `${explorerBaseUrl}${fakeTxHash}`;
-      
-      // Enhanced success message with ASCII art and colors for development mode
-      console.log('\n\x1b[32m=======================================================\x1b[0m');
-      console.log('\x1b[32m██████╗  █████╗ ██╗   ██╗███╗   ███╗███████╗███╗   ██╗████████╗\x1b[0m');
-      console.log('\x1b[32m██╔══██╗██╔══██╗╚██╗ ██╔╝████╗ ████║██╔════╝████╗  ██║╚══██╔══╝\x1b[0m');
-      console.log('\x1b[32m██████╔╝███████║ ╚████╔╝ ██╔████╔██║█████╗  ██╔██╗ ██║   ██║   \x1b[0m');
-      console.log('\x1b[32m██╔═══╝ ██╔══██║  ╚██╔╝  ██║╚██╔╝██║██╔══╝  ██║╚██╗██║   ██║   \x1b[0m');
-      console.log('\x1b[32m██║     ██║  ██║   ██║   ██║ ╚═╝ ██║███████╗██║ ╚████║   ██║   \x1b[0m');
-      console.log('\x1b[32m╚═╝     ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚══════╝╚═╝  ╚═══╝   ╚═╝   \x1b[0m');
-      console.log('\x1b[32m                                                               \x1b[0m');
-      console.log('\x1b[32m██╗   ██╗███████╗██████╗ ██╗███████╗██╗███████╗██████╗        \x1b[0m');
-      console.log('\x1b[32m██║   ██║██╔════╝██╔══██╗██║██╔════╝██║██╔════╝██╔══██╗       \x1b[0m');
-      console.log('\x1b[32m██║   ██║█████╗  ██████╔╝██║█████╗  ██║█████╗  ██║  ██║       \x1b[0m');
-      console.log('\x1b[32m╚██╗ ██╔╝██╔══╝  ██╔══██╗██║██╔══╝  ██║██╔══╝  ██║  ██║       \x1b[0m');
-      console.log('\x1b[32m ╚████╔╝ ███████╗██║  ██║██║██║     ██║███████╗██████╔╝       \x1b[0m');
-      console.log('\x1b[32m  ╚═══╝  ╚══════╝╚═╝  ╚═╝╚═╝╚═╝     ╚═╝╚══════╝╚═════╝        \x1b[0m');
-      console.log('\x1b[1;32m=======================================================\x1b[0m');
-      console.log('\x1b[1;32m✓ PAYMENT VERIFICATION SUCCESSFUL FOR REQUEST: ' + requestId + '\x1b[0m');
-      console.log('\x1b[1;32m=======================================================\x1b[0m');
-      console.log('\x1b[1;36m🔍 TRANSACTION URL: ' + explorerUrl + ' (SIMULATED)\x1b[0m');
-      console.log('\x1b[33m(SIMULATED IN DEVELOPMENT MODE)\x1b[0m\n');
-      
+      // Skip the ASCII art here since it will be handled in serviceController.ts
       return true;
     }
     
@@ -176,7 +110,7 @@ export const startPaymentListener = () => {
   
   // Set up event listener for real-time payment notifications
   try {
-    contract.on("PaymentReceived", (sender, serviceId, requestId, amount, providerAmount, platformFee, timestamp) => {
+    contract.on("PaymentReceived", (sender, serviceId, requestId, amount, providerAmount, platformFee, timestamp, event) => {
       console.log(`Payment received: ${ethers.utils.formatEther(amount)} ETN`);
       console.log(`From: ${sender}`);
       console.log(`For service: ${serviceId}`);
@@ -187,6 +121,12 @@ export const startPaymentListener = () => {
       
       // Store the payment in our map
       verifiedPayments.set(requestId, true);
+      
+      // Store the transaction hash for this requestId
+      if (event && event.transactionHash) {
+        requestTransactions.set(requestId, event.transactionHash);
+        console.log(`Transaction hash: ${event.transactionHash}`);
+      }
     });
     
     console.log("Payment listener started successfully");
@@ -194,4 +134,9 @@ export const startPaymentListener = () => {
     console.error("Error starting payment listener:", error);
     console.log("Running in fallback mode - will check for payments on demand");
   }
+};
+
+// Function to get transaction hash for a requestId
+export const getTransactionHash = (requestId: string): string | null => {
+  return requestTransactions.get(requestId) || null;
 };

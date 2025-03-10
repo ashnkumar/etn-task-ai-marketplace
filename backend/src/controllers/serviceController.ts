@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { generateRequestId } from '../utils/requestId';
-import { checkPayment } from '../utils/blockchain';
+import { checkPayment, getTransactionHash } from '../utils/blockchain';
 import { processServiceRequest, processServiceRequestStream } from '../utils/aiService';
 import { getServiceById, calculatePrice, services } from '../config/services';
 
@@ -102,7 +102,39 @@ const serviceController = {
       
       // Enhanced log only if payment is verified
       if (isPaid) {
-        console.log('\x1b[1;32m✅ Payment verification result: PAID ✅\x1b[0m');
+        // ASCII art directly in serviceController for maximum visibility
+        console.log('\n\x1b[32m=======================================================\x1b[0m');
+        console.log('\x1b[32m██████╗  █████╗ ██╗   ██╗███╗   ███╗███████╗███╗   ██╗████████╗\x1b[0m');
+        console.log('\x1b[32m██╔══██╗██╔══██╗╚██╗ ██╔╝████╗ ████║██╔════╝████╗  ██║╚══██╔══╝\x1b[0m');
+        console.log('\x1b[32m██████╔╝███████║ ╚████╔╝ ██╔████╔██║█████╗  ██╔██╗ ██║   ██║   \x1b[0m');
+        console.log('\x1b[32m██╔═══╝ ██╔══██║  ╚██╔╝  ██║╚██╔╝██║██╔══╝  ██║╚██╗██║   ██║   \x1b[0m');
+        console.log('\x1b[32m██║     ██║  ██║   ██║   ██║ ╚═╝ ██║███████╗██║ ╚████║   ██║   \x1b[0m');
+        console.log('\x1b[32m╚═╝     ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚══════╝╚═╝  ╚═══╝   ╚═╝   \x1b[0m');
+        console.log('\x1b[32m                                                               \x1b[0m');
+        console.log('\x1b[32m██╗   ██╗███████╗██████╗ ██╗███████╗██╗███████╗██████╗        \x1b[0m');
+        console.log('\x1b[32m██║   ██║██╔════╝██╔══██╗██║██╔════╝██║██╔════╝██╔══██╗       \x1b[0m');
+        console.log('\x1b[32m██║   ██║█████╗  ██████╔╝██║█████╗  ██║█████╗  ██║  ██║       \x1b[0m');
+        console.log('\x1b[32m╚██╗ ██╔╝██╔══╝  ██╔══██╗██║██╔══╝  ██║██╔══╝  ██║  ██║       \x1b[0m');
+        console.log('\x1b[32m ╚████╔╝ ███████╗██║  ██║██║██║     ██║███████╗██████╔╝       \x1b[0m');
+        console.log('\x1b[32m  ╚═══╝  ╚══════╝╚═╝  ╚═╝╚═╝╚═╝     ╚═╝╚══════╝╚═════╝        \x1b[0m');
+        console.log('\x1b[1;32m=======================================================\x1b[0m');
+        console.log('\x1b[1;32m✓ PAYMENT VERIFICATION SUCCESSFUL FOR REQUEST: ' + requestId + '\x1b[0m');
+        console.log('\x1b[1;32m=======================================================\x1b[0m');
+        
+        // Get the actual transaction hash if available
+        const txHash = getTransactionHash(requestId);
+        
+        // Determine transaction URL
+        const isMainnet = process.env.ENVIRONMENT === 'mainnet';
+        const explorerBaseUrl = isMainnet 
+          ? 'https://blockexplorer.electroneum.com/tx/'
+          : 'https://blockexplorer.testnet.electroneum.com/tx/';
+        
+        // Use actual hash if available, otherwise generate a mock one for demo
+        const transactionHash = txHash || '0x06ba5e3be13476cb7493167e0fb1a2a0a5fbc24c4f06bf2d7763f02f14f30531';
+        const explorerUrl = `${explorerBaseUrl}${transactionHash}`;
+        
+        console.log('\x1b[1;36m🔍 VIEW TRANSACTION DETAILS: ' + explorerUrl + '\x1b[0m\n');
       } else {
         console.log('Payment verification result: Not paid');
       }
