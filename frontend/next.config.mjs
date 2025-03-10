@@ -1,3 +1,4 @@
+// frontend/next.config.mjs (update your existing file)
 let userConfig = undefined
 try {
   userConfig = await import('./v0-user-next.config')
@@ -7,6 +8,8 @@ try {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  basePath: '/etn-task-ai',
+  assetPrefix: '/etn-task-ai/',
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -15,13 +18,14 @@ const nextConfig = {
   },
   images: {
     unoptimized: true,
+    domains: ['oaidalleapiprodscus.blob.core.windows.net'],
   },
   experimental: {
     webpackBuildWorker: true,
     parallelServerBuildTraces: true,
     parallelServerCompiles: true,
   },
-}
+};
 
 mergeConfig(nextConfig, userConfig)
 

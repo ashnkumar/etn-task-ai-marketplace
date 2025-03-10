@@ -6,9 +6,7 @@ import { Response } from 'express';
 dotenv.config();
 
 // OpenAI configuration
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const openai = new OpenAI(process.env.OPENAI_API_KEY);
 
 // Function to process a service request (non-streaming)
 export const processServiceRequest = async (

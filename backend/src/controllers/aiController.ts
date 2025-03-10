@@ -7,9 +7,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const openai = new OpenAI(process.env.OPENAI_API_KEY);
 
 // Mock responses for fast testing
 const mockResponses: Record<string, string> = {
