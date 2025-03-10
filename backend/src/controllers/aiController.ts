@@ -1,13 +1,16 @@
 import { Request, Response, NextFunction, RequestHandler } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { checkPayment } from '../utils/blockchain';
-import OpenAI from 'openai';
+const { Configuration, OpenAIApi } = require('openai');
 import dotenv from 'dotenv';
 
 dotenv.config();
 
 // Initialize OpenAI client
-const openai = new OpenAI(process.env.OPENAI_API_KEY);
+const configuration = new Configuration({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+const openai = new OpenAIApi(configuration);
 
 // Mock responses for fast testing
 const mockResponses: Record<string, string> = {

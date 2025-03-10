@@ -1,4 +1,4 @@
-import OpenAI from 'openai';
+const { Configuration, OpenAIApi } = require('openai');
 import { Service, getServiceById } from '../config/services';
 import dotenv from 'dotenv';
 import { Response } from 'express';
@@ -6,7 +6,10 @@ import { Response } from 'express';
 dotenv.config();
 
 // OpenAI configuration
-const openai = new OpenAI(process.env.OPENAI_API_KEY);
+const configuration = new Configuration({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+const openai = new OpenAIApi(configuration);
 
 // Function to process a service request (non-streaming)
 export const processServiceRequest = async (
