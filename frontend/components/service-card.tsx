@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { getImagePath } from "@/lib/image-path"; // Add this import
 
 interface ServiceProps {
   service: {
@@ -26,7 +27,7 @@ export default function ServiceCard({ service }: ServiceProps) {
     <Card className="overflow-hidden transition-all hover:shadow-md border-border">
       <div className="relative h-36 w-full">
         <Image 
-          src={imageSrc} 
+          src={getImagePath(imageSrc)} // Apply the getImagePath function here
           alt={service.name} 
           fill 
           className="object-cover" 
